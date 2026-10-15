@@ -69,7 +69,7 @@ def get_alumnos(
     if current_user.role != UserRole.ADMIN.value:
         if current_user.escuela_id is None:
             # User has no assigned escuela, return empty
-            return AlumnosPaginated(items=[], total=0, page=page, limit=limit, total_pages=0, activos=0, promedio_historico=None)
+            return AlumnosPaginated(items=[], total=0, page=page, limit=limit, total_pages=0, activos=0, egresados=0, promedio_historico=None)
         query = query.filter(PropuestaFormativa.escuela_id == current_user.escuela_id)
     else:
         # Admin can optionally filter by escuela_id
@@ -143,6 +143,9 @@ def get_alumnos(
 
     # Count total matching
     total = query.count()
+
+    # Calculate egresados matching the active query (matching school, carrera, search, estado filters, BEFORE pagination limit/offset)
+    egresados = query.filter(Alumno.total_actividades > 0, Alumno.actividades_aprobadas >= Alumno.total_actividades).count()
 
     # Calculate activos matching the active query (before pagination offset/limit)
     # who are enrolled in current year OR whose ultimo_examen is within the last 12 months (365 days), and who are NOT egresados
@@ -265,5 +268,6 @@ def get_alumnos(
         limit=limit,
         total_pages=total_pages,
         activos=activos,
+        egresados=egresados,
         promedio_historico=promedio_historico
     )

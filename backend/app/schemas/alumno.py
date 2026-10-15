@@ -40,4 +40,5 @@ class AlumnosPaginated(BaseModel):
     limit: int
     total_pages: int
     activos: int = 0
+    egresados: int = 0
     promedio_historico: Optional[float] = None

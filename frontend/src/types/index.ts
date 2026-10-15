@@ -84,6 +84,7 @@ export interface AlumnosPaginatedResponse {
   limit: number;
   total_pages: number;
   activos?: number;
+  egresados?: number;
   promedio_historico?: number | null;
 }
 

@@ -34,6 +34,7 @@ def test_query_alumnos_pagination(client, admin_headers):
     assert len(data["items"]) == 20
     # propuesta_id is None -> promedio_historico is None, activos is computed for all 275 (excluding egresados)
     assert data["activos"] == 67
+    assert data["egresados"] == 5
     assert data["promedio_historico"] is None
 
 
@@ -95,6 +96,7 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
     data = res.json()
     assert data["total"] == 275
     assert data["activos"] == 67
+    assert data["egresados"] == 5
     assert data["promedio_historico"] == 8.01
 
     # Verify that sorting by any field does NOT change total, activos, or promedio_historico
@@ -118,6 +120,7 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
             s_data = res_sort.json()
             assert s_data["total"] == 275, f"Total changed on sorting by {field} {sort_dir}"
             assert s_data["activos"] == 67, f"Activos changed on sorting by {field} {sort_dir}"
+            assert s_data["egresados"] == 5, f"Egresados changed on sorting by {field} {sort_dir}"
             assert s_data["promedio_historico"] == 8.01, f"Promedio historico changed on sorting by {field} {sort_dir}"
             assert len(s_data["items"]) == 10
 
@@ -166,6 +169,7 @@ def test_condicion_filtering_and_egresados_exclusion(client, admin_headers):
     data_all = res_all.json()
     assert data_all["total"] == 275
     assert data_all["activos"] == 67
+    assert data_all["egresados"] == 5
 
     # 1. Filter by 'activos': students who are NOT egresados and (enrolled in current year OR have exam within last 12 months)
     res_act = client.get("/api/alumnos?condicion=activos&limit=100", headers=admin_headers)
@@ -173,6 +177,7 @@ def test_condicion_filtering_and_egresados_exclusion(client, admin_headers):
     data_act = res_act.json()
     assert data_act["total"] == 67
     assert data_act["activos"] == 67
+    assert data_act["egresados"] == 0
     now_year = datetime.now().year
     for item in data_act["items"]:
         is_egresado = item["total_actividades"] > 0 and item["actividades_aprobadas"] >= item["total_actividades"]
@@ -185,6 +190,7 @@ def test_condicion_filtering_and_egresados_exclusion(client, admin_headers):
     data_inact = res_inact.json()
     assert data_inact["total"] == 203
     assert data_inact["activos"] == 0
+    assert data_inact["egresados"] == 0
     for item in data_inact["items"]:
         is_egresado = item["total_actividades"] > 0 and item["actividades_aprobadas"] >= item["total_actividades"]
         assert not is_egresado
@@ -195,6 +201,7 @@ def test_condicion_filtering_and_egresados_exclusion(client, admin_headers):
     data_rec = res_rec.json()
     assert data_rec["total"] == 5
     assert data_rec["activos"] == 0
+    assert data_rec["egresados"] == 5
     for item in data_rec["items"]:
         assert item["total_actividades"] > 0
         assert item["actividades_aprobadas"] >= item["total_actividades"]

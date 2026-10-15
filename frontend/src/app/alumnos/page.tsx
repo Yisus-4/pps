@@ -63,6 +63,7 @@ export default function AlumnosPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [activos, setActivos] = useState<number>(0);
+  const [egresados, setEgresados] = useState(0);
   const [promedioHistorico, setPromedioHistorico] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +180,7 @@ export default function AlumnosPage() {
       setTotal(res.total);
       setTotalPages(res.total_pages);
       setActivos(res.activos ?? 0);
+      setEgresados(res.egresados ?? 0);
       setPromedioHistorico(res.promedio_historico ?? null);
       setError(null);
     } catch (err: unknown) {
@@ -211,6 +213,7 @@ export default function AlumnosPage() {
           setTotal(res.total);
           setTotalPages(res.total_pages);
           setActivos(res.activos ?? 0);
+          setEgresados(res.egresados ?? 0);
           setPromedioHistorico(res.promedio_historico ?? null);
           setError(null);
         }
@@ -507,8 +510,8 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* KPI Cards (Métricas: Alumnos, Activos y opcionalmente Promedio Histórico de Egresados) */}
-        <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-4`}>
+        {/* KPI Cards (Métricas: Alumnos, Activos, Egresados y opcionalmente Promedio Histórico de Egresados) */}
+        <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-4" : "sm:grid-cols-3"} gap-4`}>
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
@@ -523,6 +526,14 @@ export default function AlumnosPage() {
               Activos
             </p>
             <p className="text-2xl font-black text-[#3F6B4F] mt-1">{activos}</p>
+          </div>
+
+          <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#2563EB]" />
+            <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+              Egresados
+            </p>
+            <p className="text-2xl font-black text-[#1D4ED8] mt-1">{egresados}</p>
           </div>
 
           {selectedPropuestaId !== null && (
@@ -616,8 +627,6 @@ export default function AlumnosPage() {
               {[
                 { value: "", label: "Todos los alumnos" },
                 { value: "activos", label: "🟢 Activos" },
-                { value: "inactivos", label: "⚪ Inactivos" },
-                { value: "recibidos", label: "🔵 Recibidos" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -630,10 +639,6 @@ export default function AlumnosPage() {
                     condicion === item.value
                       ? item.value === "activos"
                         ? "bg-emerald-600 text-white shadow-2xs"
-                        : item.value === "inactivos"
-                        ? "bg-gray-600 text-white shadow-2xs"
-                        : item.value === "recibidos"
-                        ? "bg-blue-600 text-white shadow-2xs"
                         : "bg-[#826170] text-white shadow-2xs"
                       : "bg-[#F1E9ED] text-[#4F3A44] hover:bg-[#E6DEE2]"
                   }`}
