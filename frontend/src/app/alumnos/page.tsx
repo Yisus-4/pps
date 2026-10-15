@@ -20,11 +20,32 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  LayoutGrid,
+  List,
+  Table as TableIcon,
+  BookOpen,
+  Award,
+  User,
   X,
 } from "lucide-react";
 
 export default function AlumnosPage() {
   const { user, isAdmin } = useAuth();
+
+  // View mode: 'compact' (fits screen without horizontal scroll), 'cards' (responsive grid), 'full' (all 10 columns)
+  const [viewMode, setViewMode] = useState<"compact" | "cards" | "full">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("undec_alumnos_view_mode") as "compact" | "cards" | "full" | null;
+        if (saved && ["compact", "cards", "full"].includes(saved)) {
+          return saved;
+        }
+      } catch {
+        // Ignore
+      }
+    }
+    return "compact";
+  });
 
   // Filter state
   const [escuelas, setEscuelas] = useState<Escuela[]>([]);
@@ -44,6 +65,15 @@ export default function AlumnosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAlumno, setSelectedAlumno] = useState<Alumno | null>(null);
+
+  const changeViewMode = (mode: "compact" | "cards" | "full") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("undec_alumnos_view_mode", mode);
+    } catch {
+      // Ignore
+    }
+  };
 
   // Initialize schools
   useEffect(() => {
@@ -222,10 +252,10 @@ export default function AlumnosPage() {
       : "-";
 
   // Functional status badge helper
-  const renderStatusBadge = (estado?: string | null) => {
+  const renderStatusBadge = (estado?: string | null, compact = false) => {
     if (!estado) {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
           <HelpCircle className="w-3 h-3 mr-1" />
           Sin Datos
         </span>
@@ -233,26 +263,45 @@ export default function AlumnosPage() {
     }
 
     const upper = estado.toUpperCase();
+    let label = estado;
+    if (compact) {
+      if (upper.includes("INSC") && upper.includes("ACEPTADA")) label = "Aceptada";
+      else if (upper.includes("ASPIRANTE")) label = "Aspirante";
+      else if (upper.includes("REGULAR") && !upper.includes("NO")) label = "Regular";
+      else if (upper.includes("NO REGULAR") || upper.includes("RECHAZ")) label = "Rechazado";
+      else if (upper.includes("REINSC")) label = "Reinscripto";
+      else if (upper.includes("PENDIENTE") || upper.includes("OBSERV")) label = "Observación";
+    }
+
     if (upper.includes("REGULAR") || upper.includes("ACEPTADA") || upper.includes("ACTIVO")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EBF3EE] text-[#3F6B4F] border border-[#3F6B4F]/20">
-          <CheckCircle2 className="w-3 h-3 mr-1 text-[#3F6B4F]" />
-          {estado}
+        <span
+          title={estado}
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EBF3EE] text-[#3F6B4F] border border-[#3F6B4F]/20 whitespace-nowrap"
+        >
+          <CheckCircle2 className="w-3 h-3 mr-1 text-[#3F6B4F] shrink-0" />
+          {label}
         </span>
       );
     }
     if (upper.includes("ASPIRANTE") || upper.includes("OBSERV") || upper.includes("PENDIENTE")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FAF3DD] text-[#A07A0B] border border-[#E5B115]/30">
-          <Clock className="w-3 h-3 mr-1 text-[#A07A0B]" />
-          {estado}
+        <span
+          title={estado}
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FAF3DD] text-[#A07A0B] border border-[#E5B115]/30 whitespace-nowrap"
+        >
+          <Clock className="w-3 h-3 mr-1 text-[#A07A0B] shrink-0" />
+          {label}
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FAECEB] text-[#A33B2F] border border-[#A33B2F]/20">
-        <XCircle className="w-3 h-3 mr-1 text-[#A33B2F]" />
-        {estado}
+      <span
+        title={estado}
+        className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FAECEB] text-[#A33B2F] border border-[#A33B2F]/20 whitespace-nowrap"
+      >
+        <XCircle className="w-3 h-3 mr-1 text-[#A33B2F] shrink-0" />
+        {label}
       </span>
     );
   };
@@ -265,7 +314,7 @@ export default function AlumnosPage() {
           <div>
             <div className="flex items-center space-x-2">
               <h1 className="text-2xl font-black text-[#4F3A44] tracking-tight">
-                Alumnos SIU Guaraní
+                Padrón de Alumnos
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#F1E9ED] text-[#826170] border border-[#D5C3CC]">
                 {total} Registrados
@@ -276,11 +325,54 @@ export default function AlumnosPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* View Switcher */}
+            <div className="flex items-center bg-[#F1E9ED] p-0.5 rounded-lg border border-[#D5C3CC]">
+              <button
+                type="button"
+                onClick={() => changeViewMode("compact")}
+                className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  viewMode === "compact"
+                    ? "bg-white text-[#4F3A44] shadow-2xs font-bold"
+                    : "text-[#6B6166] hover:text-[#1F1A1C]"
+                }`}
+                title="Vista compacta: Todos los campos ajustados a pantalla sin desplazamiento horizontal"
+              >
+                <List className="w-3.5 h-3.5 mr-1" />
+                <span>Compacta</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => changeViewMode("cards")}
+                className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  viewMode === "cards"
+                    ? "bg-white text-[#4F3A44] shadow-2xs font-bold"
+                    : "text-[#6B6166] hover:text-[#1F1A1C]"
+                }`}
+                title="Vista de fichas: Tarjetas individuales limpias sin tablas"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 mr-1" />
+                <span>Fichas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => changeViewMode("full")}
+                className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  viewMode === "full"
+                    ? "bg-white text-[#4F3A44] shadow-2xs font-bold"
+                    : "text-[#6B6166] hover:text-[#1F1A1C]"
+                }`}
+                title="Vista completa: Tabla extendida con todas las columnas"
+              >
+                <TableIcon className="w-3.5 h-3.5 mr-1" />
+                <span>Completa</span>
+              </button>
+            </div>
+
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="inline-flex items-center px-3.5 py-2 border border-[#E6E0DD] rounded-lg shadow-2xs text-xs font-semibold text-[#4F3A44] bg-white hover:bg-[#FAF8F7] focus:outline-hidden disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3 py-1.5 border border-[#E6E0DD] rounded-lg shadow-2xs text-xs font-semibold text-[#4F3A44] bg-white hover:bg-[#FAF8F7] focus:outline-hidden disabled:opacity-50 transition-colors"
             >
               <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
               Actualizar
@@ -289,7 +381,7 @@ export default function AlumnosPage() {
             <button
               onClick={() => exportAlumnosToCsv(alumnos)}
               disabled={alumnos.length === 0}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-2xs text-xs font-semibold text-white bg-[#826170] hover:bg-[#4F3A44] focus:outline-hidden disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3.5 py-1.5 border border-transparent rounded-lg shadow-2xs text-xs font-semibold text-white bg-[#826170] hover:bg-[#4F3A44] focus:outline-hidden disabled:opacity-50 transition-colors"
             >
               <Download className="w-3.5 h-3.5 mr-1.5" />
               Exportar CSV
@@ -415,65 +507,240 @@ export default function AlumnosPage() {
           </div>
         )}
 
-        {/* Table Container */}
+        {/* Data Container: Compact Table, Cards Grid, or Full Table */}
         <div className="bg-white border border-[#E6E0DD] rounded-xl shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[#E6E0DD] text-left text-xs">
-              <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
-                <tr>
-                  {renderSortableHeader("documento", "Documento", "px-4 py-3.5")}
-                  {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
-                  {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
-                  {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
-                  {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5")}
-                  {renderSortableHeader("estado_inscripcion", "Estado Inscripción", "px-3 py-3.5")}
-                  {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
-                  {renderSortableHeader("promedio_sin_aplazos", "Prom. s/ Apl.", "px-3 py-3.5", "center")}
-                  {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
-                  {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E6E0DD] bg-white">
-                {isLoading ? (
+          {/* 1. Vista Compacta (Ajustada 100% al ancho de pantalla sin scroll horizontal) */}
+          {viewMode === "compact" && (
+            <div className="w-full">
+              <table className="w-full divide-y divide-[#E6E0DD] text-left text-xs table-fixed">
+                <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
                   <tr>
-                    <td colSpan={10} className="px-6 py-12 text-center text-[#6B6166]">
-                      <div className="flex flex-col items-center justify-center space-y-2">
-                        <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
-                        <span className="text-xs font-semibold text-[#826170]">
-                          Cargando padrón de alumnos...
-                        </span>
-                      </div>
-                    </td>
+                    {renderSortableHeader("apellido_nombre", "Alumno", "px-4 py-3.5 w-[30%]")}
+                    {renderSortableHeader("propuesta_id", "Carrera y Plan", "px-4 py-3.5 w-[28%]")}
+                    {renderSortableHeader("estado_inscripcion", "Estado", "px-3 py-3.5 w-[14%]")}
+                    {renderSortableHeader("promedio_con_aplazos", "Rendimiento", "px-3 py-3.5 w-[15%]")}
+                    {renderSortableHeader("ultimo_examen", "Últ. Examen", "px-3 py-3.5 w-[13%]")}
                   </tr>
-                ) : alumnos.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-6 py-16 text-center">
-                      <div className="max-w-sm mx-auto flex flex-col items-center">
-                        <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
-                          <GraduationCap className="w-6 h-6" />
+                </thead>
+                <tbody className="divide-y divide-[#E6E0DD] bg-white">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-14 text-center text-[#6B6166]">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
+                          <span className="text-xs font-semibold text-[#826170]">
+                            Cargando padrón de alumnos...
+                          </span>
                         </div>
-                        <p className="text-sm font-bold text-[#1F1A1C]">
-                          No se encontraron alumnos
-                        </p>
-                        <p className="text-xs text-[#6B6166] mt-1 text-center">
-                          Intente ajustar o restablecer los filtros de búsqueda, escuela o carrera,
-                          o cargue un archivo Excel SIU Guaraní en la pestaña &quot;Cargar Datos&quot;.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  alumnos.map((a) => {
-                    const isSelected = selectedAlumno?.id === a.id;
-                    return (
+                      </td>
+                    </tr>
+                  ) : alumnos.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-16 text-center">
+                        <div className="max-w-sm mx-auto flex flex-col items-center">
+                          <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
+                            <GraduationCap className="w-6 h-6" />
+                          </div>
+                          <p className="text-sm font-bold text-[#1F1A1C]">
+                            No se encontraron alumnos
+                          </p>
+                          <p className="text-xs text-[#6B6166] mt-1 text-center">
+                            Intente ajustar o restablecer los filtros de búsqueda, escuela o carrera.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    alumnos.map((a) => (
                       <tr
                         key={a.id}
-                        onClick={() => setSelectedAlumno(isSelected ? null : a)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected
-                            ? "bg-[#F1E9ED] font-medium border-l-4 border-[#826170]"
-                            : "hover:bg-[#FAF8F7]"
-                        }`}
+                        onClick={() => setSelectedAlumno(a)}
+                        className="cursor-pointer transition-colors hover:bg-[#F1E9ED]/50 group"
+                      >
+                        {/* Alumno */}
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-[#1F1A1C] group-hover:text-[#826170] transition-colors truncate">
+                            {a.apellido_nombre}
+                          </div>
+                          <div className="text-[11px] text-[#6B6166] font-mono mt-0.5 truncate">
+                            {a.documento} {a.legajo ? `• Leg: ${a.legajo}` : ""}
+                          </div>
+                        </td>
+
+                        {/* Carrera & Plan */}
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-[#4F3A44] truncate" title={a.propuesta_nombre || ""}>
+                            {a.propuesta_nombre || "Sin carrera asignada"}
+                          </div>
+                          <div className="text-[11px] text-[#6B6166] mt-0.5 truncate">
+                            Plan: {a.plan || "S/D"} {a.anio_ingreso ? `• Ingreso: ${a.anio_ingreso}` : ""}
+                          </div>
+                        </td>
+
+                        {/* Estado */}
+                        <td className="px-3 py-3">
+                          {renderStatusBadge(a.estado_inscripcion, true)}
+                        </td>
+
+                        {/* Rendimiento */}
+                        <td className="px-3 py-3">
+                          <div className="font-mono text-[#1F1A1C] font-bold">
+                            Prom: {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined ? a.promedio_con_aplazos.toFixed(2) : "-"}
+                          </div>
+                          <div className="text-[11px] text-[#6B6166]">
+                            Act: {a.actividades_aprobadas} / {a.total_actividades}
+                          </div>
+                        </td>
+
+                        {/* Último Examen */}
+                        <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] truncate">
+                          {a.ultimo_examen || "-"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 2. Vista de Fichas / Tarjetas (Cero tablas, diseño responsive) */}
+          {viewMode === "cards" && (
+            <div className="p-4 bg-[#FAF8F7]">
+              {isLoading ? (
+                <div className="py-14 text-center text-[#6B6166]">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
+                    <span className="text-xs font-semibold text-[#826170]">
+                      Cargando padrón de alumnos...
+                    </span>
+                  </div>
+                </div>
+              ) : alumnos.length === 0 ? (
+                <div className="py-16 text-center text-[#6B6166]">
+                  <div className="max-w-sm mx-auto flex flex-col items-center">
+                    <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
+                      <GraduationCap className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-bold text-[#1F1A1C]">No se encontraron alumnos</p>
+                    <p className="text-xs text-[#6B6166] mt-1 text-center">
+                      Intente ajustar o restablecer los filtros de búsqueda, escuela o carrera.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {alumnos.map((a) => (
+                    <div
+                      key={a.id}
+                      onClick={() => setSelectedAlumno(a)}
+                      className="bg-white border border-[#E6E0DD] hover:border-[#826170] rounded-xl p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between group"
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-bold text-sm text-[#1F1A1C] group-hover:text-[#826170] transition-colors leading-snug">
+                              {a.apellido_nombre}
+                            </h3>
+                            <p className="text-[11px] text-[#6B6166] font-mono mt-0.5">
+                              {a.documento} {a.legajo ? `• Leg: ${a.legajo}` : ""}
+                            </p>
+                          </div>
+                          <div>{renderStatusBadge(a.estado_inscripcion, true)}</div>
+                        </div>
+
+                        <div className="my-2.5 pt-2.5 border-t border-[#E6E0DD] text-xs">
+                          <p className="font-semibold text-[#4F3A44] line-clamp-1" title={a.propuesta_nombre || ""}>
+                            {a.propuesta_nombre || "Sin carrera asignada"}
+                          </p>
+                          <p className="text-[11px] text-[#6B6166] mt-0.5">
+                            Plan: {a.plan || "S/D"} {a.anio_ingreso ? `• Ingreso: ${a.anio_ingreso}` : ""}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-[#E6E0DD] grid grid-cols-3 gap-2 text-center text-xs bg-[#FAF8F7] p-2 rounded-lg">
+                        <div>
+                          <span className="text-[10px] text-[#6B6166] block">Prom. c/Apl</span>
+                          <span className="font-bold font-mono text-[#826170] text-xs">
+                            {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
+                              ? a.promedio_con_aplazos.toFixed(2)
+                              : "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#6B6166] block">Actividades</span>
+                          <span className="font-bold font-mono text-[#1F1A1C] text-xs">
+                            {a.actividades_aprobadas}/{a.total_actividades}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#6B6166] block">Últ. Examen</span>
+                          <span className="font-bold font-mono text-[#4F3A44] text-[10px] truncate block">
+                            {a.ultimo_examen || "-"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 3. Vista Completa (Todas las columnas individuales en tabla con scroll) */}
+          {viewMode === "full" && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-[#E6E0DD] text-left text-xs">
+                <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
+                  <tr>
+                    {renderSortableHeader("documento", "Documento", "px-4 py-3.5")}
+                    {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
+                    {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
+                    {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
+                    {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5")}
+                    {renderSortableHeader("estado_inscripcion", "Estado Inscripción", "px-3 py-3.5")}
+                    {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("promedio_sin_aplazos", "Prom. s/ Apl.", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E6E0DD] bg-white">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={10} className="px-6 py-12 text-center text-[#6B6166]">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
+                          <span className="text-xs font-semibold text-[#826170]">
+                            Cargando padrón de alumnos...
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : alumnos.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="px-6 py-16 text-center">
+                        <div className="max-w-sm mx-auto flex flex-col items-center">
+                          <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
+                            <GraduationCap className="w-6 h-6" />
+                          </div>
+                          <p className="text-sm font-bold text-[#1F1A1C]">
+                            No se encontraron alumnos
+                          </p>
+                          <p className="text-xs text-[#6B6166] mt-1 text-center">
+                            Intente ajustar o restablecer los filtros de búsqueda, escuela o carrera.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    alumnos.map((a) => (
+                      <tr
+                        key={a.id}
+                        onClick={() => setSelectedAlumno(a)}
+                        className="cursor-pointer transition-colors hover:bg-[#FAF8F7]"
                       >
                         <td className="px-4 py-3 font-mono font-semibold text-[#1F1A1C] whitespace-nowrap">
                           {a.documento}
@@ -519,12 +786,12 @@ export default function AlumnosPage() {
                           {a.ultimo_examen || "-"}
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pagination Controls */}
           <div className="px-4 py-3 bg-[#FAF8F7] border-t border-[#E6E0DD] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
@@ -571,103 +838,166 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* Selected Alumno Detail Drawer / Card */}
+        {/* Modal Dialog: Ficha Completa del Alumno */}
         {selectedAlumno && (
-          <div className="bg-white border-2 border-[#826170]/30 rounded-xl p-5 shadow-sm relative">
-            <button
-              onClick={() => setSelectedAlumno(null)}
-              className="absolute top-4 right-4 p-1 text-[#6B6166] hover:text-[#4F3A44] rounded-md hover:bg-[#F1E9ED]"
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+            onClick={() => setSelectedAlumno(null)}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-[#E6E0DD] animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
             >
-              <X className="w-4 h-4" />
-            </button>
+              {/* Modal Header */}
+              <div className="bg-[#FAF8F7] px-6 py-4 border-b border-[#E6E0DD] flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-11 h-11 rounded-xl bg-[#826170] text-white flex items-center justify-center font-black text-lg shadow-2xs">
+                    {selectedAlumno.apellido_nombre.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1F1A1C]">
+                      {selectedAlumno.apellido_nombre}
+                    </h3>
+                    <p className="text-xs text-[#6B6166]">
+                      {selectedAlumno.documento} • Legajo: {selectedAlumno.legajo || "S/D"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedAlumno(null)}
+                  className="p-1.5 text-[#6B6166] hover:text-[#4F3A44] rounded-lg hover:bg-[#F1E9ED] transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-[#826170] text-white flex items-center justify-center font-bold">
-                {selectedAlumno.apellido_nombre.charAt(0)}
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#1F1A1C]">
-                  {selectedAlumno.apellido_nombre}
-                </h3>
-                <p className="text-xs text-[#6B6166]">
-                  DNI: {selectedAlumno.documento} • Legajo: {selectedAlumno.legajo || "S/D"} • Carrera:{" "}
-                  {selectedAlumno.propuesta_nombre || "S/D"}
-                </p>
-              </div>
-            </div>
+              {/* Modal Body */}
+              <div className="p-6 space-y-5 text-xs">
+                {/* Propuesta y Estado */}
+                <div>
+                  <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#826170] mb-2 flex items-center">
+                    <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                    Carrera y Propuesta Formativa
+                  </h4>
+                  <div className="bg-[#FAF8F7] p-3.5 rounded-xl border border-[#E6E0DD] grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[#6B6166] block">Propuesta:</span>
+                      <span className="font-bold text-[#1F1A1C]">
+                        {selectedAlumno.propuesta_nombre || "No especificada"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Estado de Inscripción:</span>
+                      <div className="mt-1">{renderStatusBadge(selectedAlumno.estado_inscripcion, false)}</div>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Plan de Estudios:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.plan || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Año / Fecha Ingreso:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.anio_ingreso || "-"} {selectedAlumno.fecha_ingreso ? `(${selectedAlumno.fecha_ingreso})` : ""}
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs pt-3 border-t border-[#E6E0DD]">
-              <div>
-                <span className="text-[#6B6166] block">Estado Inscripción:</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {selectedAlumno.estado_inscripcion || "-"}
-                </span>
+                {/* Rendimiento Académico */}
+                <div>
+                  <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#826170] mb-2 flex items-center">
+                    <Award className="w-3.5 h-3.5 mr-1.5" />
+                    Rendimiento Académico
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
+                      <span className="text-[11px] text-[#6B6166] block">Prom. c/ Aplazos</span>
+                      <span className="text-lg font-black text-[#826170] font-mono mt-0.5 block">
+                        {selectedAlumno.promedio_con_aplazos !== null && selectedAlumno.promedio_con_aplazos !== undefined
+                          ? selectedAlumno.promedio_con_aplazos.toFixed(2)
+                          : "-"}
+                      </span>
+                    </div>
+                    <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
+                      <span className="text-[11px] text-[#6B6166] block">Prom. s/ Aplazos</span>
+                      <span className="text-lg font-black text-[#4F3A44] font-mono mt-0.5 block">
+                        {selectedAlumno.promedio_sin_aplazos !== null && selectedAlumno.promedio_sin_aplazos !== undefined
+                          ? selectedAlumno.promedio_sin_aplazos.toFixed(2)
+                          : "-"}
+                      </span>
+                    </div>
+                    <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
+                      <span className="text-[11px] text-[#6B6166] block">Actividades</span>
+                      <span className="text-lg font-black text-[#1F1A1C] font-mono mt-0.5 block">
+                        {selectedAlumno.actividades_aprobadas} / {selectedAlumno.total_actividades}
+                      </span>
+                    </div>
+                    <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
+                      <span className="text-[11px] text-[#6B6166] block">Último Examen</span>
+                      <span className="text-xs font-bold text-[#1F1A1C] font-mono mt-1.5 block">
+                        {selectedAlumno.ultimo_examen || "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información Personal y Contacto */}
+                <div>
+                  <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#826170] mb-2 flex items-center">
+                    <User className="w-3.5 h-3.5 mr-1.5" />
+                    Información Personal y Contacto
+                  </h4>
+                  <div className="bg-[#FAF8F7] p-3.5 rounded-xl border border-[#E6E0DD] grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <span className="text-[#6B6166] block">Email:</span>
+                      <span className="font-semibold text-[#1F1A1C] break-all">
+                        {selectedAlumno.email || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Teléfono:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.telefono || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">País de Origen:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.pais_origen || "Argentina"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Fecha Nacimiento:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.fecha_nacimiento || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Última Reinscripción:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.ultima_reinscripcion || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Coeficiente:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.coeficiente ?? "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-[#6B6166] block">Plan / Versión:</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {selectedAlumno.plan || "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Año Ingreso:</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {selectedAlumno.anio_ingreso || "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Fecha Ingreso:</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {selectedAlumno.fecha_ingreso || "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Promedio c/ Aplazos:</span>
-                <span className="font-semibold text-[#1F1A1C] font-mono">
-                  {selectedAlumno.promedio_con_aplazos ?? "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Promedio s/ Aplazos:</span>
-                <span className="font-semibold text-[#1F1A1C] font-mono">
-                  {selectedAlumno.promedio_sin_aplazos ?? "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Actividades (Aprob./Tot.):</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {selectedAlumno.actividades_aprobadas} de {selectedAlumno.total_actividades}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Último Examen:</span>
-                <span className="font-semibold text-[#1F1A1C] font-mono">
-                  {selectedAlumno.ultimo_examen || "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Email:</span>
-                <span className="font-semibold text-[#1F1A1C] truncate block">
-                  {selectedAlumno.email || "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Teléfono:</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {selectedAlumno.telefono || "-"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">País de Origen:</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {selectedAlumno.pais_origen || "Argentina"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#6B6166] block">Última Actualización:</span>
-                <span className="font-semibold text-[#1F1A1C]">
-                  {new Date(selectedAlumno.updated_at).toLocaleDateString("es-AR")}
-                </span>
+
+              {/* Modal Footer */}
+              <div className="bg-[#FAF8F7] px-6 py-3 border-t border-[#E6E0DD] flex justify-end">
+                <button
+                  onClick={() => setSelectedAlumno(null)}
+                  className="px-4 py-2 bg-[#826170] hover:bg-[#4F3A44] text-white rounded-lg text-xs font-semibold transition-colors"
+                >
+                  Cerrar
+                </button>
               </div>
             </div>
           </div>
