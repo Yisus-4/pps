@@ -240,6 +240,14 @@ export default function AlumnosPage() {
     await executeQuery();
   };
 
+  // Helper: Formatear duración en la carrera en años
+  const formatDuration = (years?: number | null): string => {
+    if (years === null || years === undefined) return "-";
+    if (years === 0) return "< 1 año";
+    if (years === 1) return "1 año";
+    return `${years} años`;
+  };
+
   // Helper: Calcular edad dinámicamente desde fecha_nacimiento (ej. "20/01/1991" o "1991-01-20")
   const calculateAge = (birthDateStr?: string | null): string => {
     if (!birthDateStr) return "-";
@@ -632,6 +640,7 @@ export default function AlumnosPage() {
                     {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
                     {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("duracion", "Duración", "px-3 py-3.5", "center")}
                     {renderSortableHeader("ultimo_examen", "Último Examen", "px-3 py-3.5")}
                     {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
                     {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
@@ -640,7 +649,7 @@ export default function AlumnosPage() {
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={9} className="px-6 py-14 text-center text-[#6B6166]">
+                      <td colSpan={10} className="px-6 py-14 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -651,7 +660,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-6 py-16 text-center">
+                      <td colSpan={10} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -712,6 +721,9 @@ export default function AlumnosPage() {
                           <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
                             {a.anio_ingreso || "-"}
                           </td>
+                          <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
+                            {formatDuration(a.duracion_anios)}
+                          </td>
                           <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] whitespace-nowrap">
                             {a.ultimo_examen || "-"}
                           </td>
@@ -749,6 +761,7 @@ export default function AlumnosPage() {
                     {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
                     {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("duracion", "Duración", "px-3 py-3.5", "center")}
                     {renderSortableHeader("estado_inscripcion", "Inscripción", "px-3 py-3.5")}
                     {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
                     {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
@@ -759,7 +772,7 @@ export default function AlumnosPage() {
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={12} className="px-6 py-12 text-center text-[#6B6166]">
+                      <td colSpan={13} className="px-6 py-12 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -770,7 +783,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="px-6 py-16 text-center">
+                      <td colSpan={13} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -845,6 +858,9 @@ export default function AlumnosPage() {
                           </td>
                           <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
                             {a.anio_ingreso || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
+                            {formatDuration(a.duracion_anios)}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap">
                             {renderStatusBadge(a.estado_inscripcion)}
@@ -1082,6 +1098,25 @@ export default function AlumnosPage() {
                       <span className="font-semibold text-[#1F1A1C]">
                         {selectedAlumno.anio_ingreso || "-"} {selectedAlumno.fecha_ingreso ? `(${selectedAlumno.fecha_ingreso})` : ""}
                       </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Duración en la Carrera:</span>
+                      <div className="flex items-center space-x-1.5 mt-0.5">
+                        <span className="font-semibold text-[#1F1A1C]">
+                          {formatDuration(selectedAlumno.duracion_anios)}
+                        </span>
+                        {selectedAlumno.duracion_anios !== null && selectedAlumno.duracion_anios !== undefined && (
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
+                              getStudentCondition(selectedAlumno) === "recibido"
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            }`}
+                          >
+                            {getStudentCondition(selectedAlumno) === "recibido" ? "Graduación" : "En curso"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <span className="text-[#6B6166] block">Última Reinscripción:</span>

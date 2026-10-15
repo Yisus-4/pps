@@ -14,6 +14,7 @@ class AlumnoOut(BaseModel):
     legajo: Optional[str] = None
     plan: Optional[str] = None
     anio_ingreso: Optional[int] = None
+    duracion_anios: Optional[int] = None
     fecha_ingreso: Optional[str] = None
     ultimo_examen: Optional[str] = None
     ultima_reinscripcion: Optional[str] = None

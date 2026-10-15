@@ -62,6 +62,7 @@ export interface Alumno {
   legajo?: string | null;
   plan?: string | null;
   anio_ingreso?: number | null;
+  duracion_anios?: number | null;
   fecha_ingreso?: string | null;
   ultimo_examen?: string | null;
   ultima_reinscripcion?: string | null;

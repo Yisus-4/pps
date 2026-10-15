@@ -178,6 +178,7 @@ def get_alumnos(
         "legajo": Alumno.legajo,
         "plan": Alumno.plan,
         "anio_ingreso": Alumno.anio_ingreso,
+        "duracion": Alumno.anio_ingreso,
         "estado_inscripcion": Alumno.estado_inscripcion,
         "promedio_con_aplazos": Alumno.promedio_con_aplazos,
         "promedio_sin_aplazos": Alumno.promedio_sin_aplazos,
@@ -187,15 +188,30 @@ def get_alumnos(
         "fecha_nacimiento": Alumno.fecha_nacimiento,
     }
     sort_col = sort_fields.get(sort_by, Alumno.apellido_nombre)
-    if sort_dir and sort_dir.lower() == "desc":
+    is_desc = bool(sort_dir and sort_dir.lower() == "desc")
+    if sort_by == "duracion":
+        is_desc = not is_desc
+
+    if is_desc:
         query = query.order_by(sort_col.desc().nullslast())
     else:
-        query = query.order_by(sort_col.asc().nullsfirst())
+        query = query.order_by(sort_col.asc().nullslast() if sort_by == "duracion" else sort_col.asc().nullsfirst())
 
     db_alumnos = query.offset(offset).limit(limit).all()
 
+    current_year = now.year
     items = []
     for a in db_alumnos:
+        duracion_anios: Optional[int] = None
+        if a.anio_ingreso:
+            is_egresado = (a.total_actividades or 0) > 0 and (a.actividades_aprobadas or 0) >= (a.total_actividades or 0)
+            if is_egresado:
+                dt = parse_date_robust(a.ultimo_examen)
+                end_year = dt.year if dt else current_year
+                duracion_anios = max(0, end_year - a.anio_ingreso)
+            else:
+                duracion_anios = max(0, current_year - a.anio_ingreso)
+
         item = AlumnoOut(
             id=a.id,
             propuesta_id=a.propuesta_id,
@@ -207,6 +223,7 @@ def get_alumnos(
             legajo=a.legajo,
             plan=a.plan,
             anio_ingreso=a.anio_ingreso,
+            duracion_anios=duracion_anios,
             fecha_ingreso=a.fecha_ingreso,
             ultimo_examen=a.ultimo_examen,
             ultima_reinscripcion=a.ultima_reinscripcion,

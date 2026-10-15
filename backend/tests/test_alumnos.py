@@ -104,6 +104,7 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
         "legajo",
         "plan",
         "anio_ingreso",
+        "duracion",
         "promedio_con_aplazos",
         "promedio_sin_aplazos",
         "actividades_aprobadas",
@@ -202,4 +203,52 @@ def test_condicion_filtering_and_egresados_exclusion(client, admin_headers):
 
     # Sum of partitioned subsets must equal total alumnos
     assert data_act["total"] + data_inact["total"] + data_rec["total"] == data_all["total"]
+
+
+def test_duracion_en_carrera_calculation_and_sorting(client, admin_headers, db_session):
+    now_year = datetime.now().year
+
+    # 1. Egresados: duration = max(0, dt.year - anio_ingreso)
+    res_rec = client.get("/api/alumnos?condicion=recibidos", headers=admin_headers)
+    assert res_rec.status_code == 200
+    rec_items = res_rec.json()["items"]
+    assert len(rec_items) > 0
+    for item in rec_items:
+        assert item["duracion_anios"] is not None
+        if item["anio_ingreso"]:
+            from app.routers.alumnos import parse_date_robust
+            dt = parse_date_robust(item["ultimo_examen"])
+            expected_end = dt.year if dt else now_year
+            assert item["duracion_anios"] == max(0, expected_end - item["anio_ingreso"])
+
+    # 2. Pendientes (activos / inactivos): duration = max(0, now_year - anio_ingreso)
+    res_act = client.get("/api/alumnos?condicion=activos&limit=10", headers=admin_headers)
+    assert res_act.status_code == 200
+    act_items = res_act.json()["items"]
+    assert len(act_items) > 0
+    for item in act_items:
+        if item["anio_ingreso"]:
+            assert item["duracion_anios"] == max(0, now_year - item["anio_ingreso"])
+
+    # 3. Student without anio_ingreso -> duracion_anios is None
+    student = db_session.query(Alumno).first()
+    student.anio_ingreso = None
+    db_session.commit()
+
+    res_none = client.get(f"/api/alumnos?search={student.documento}", headers=admin_headers)
+    assert res_none.status_code == 200
+    assert res_none.json()["items"][0]["duracion_anios"] is None
+
+    # 4. Sorting by duracion
+    res_asc = client.get("/api/alumnos?sort_by=duracion&sort_dir=asc&limit=10", headers=admin_headers)
+    assert res_asc.status_code == 200
+    asc_items = res_asc.json()["items"]
+    valid_asc_anios = [i["anio_ingreso"] for i in asc_items if i["anio_ingreso"] is not None]
+    assert valid_asc_anios == sorted(valid_asc_anios, reverse=True)
+
+    res_desc = client.get("/api/alumnos?sort_by=duracion&sort_dir=desc&limit=10", headers=admin_headers)
+    assert res_desc.status_code == 200
+    desc_items = res_desc.json()["items"]
+    valid_desc_anios = [i["anio_ingreso"] for i in desc_items if i["anio_ingreso"] is not None]
+    assert valid_desc_anios == sorted(valid_desc_anios)
 
