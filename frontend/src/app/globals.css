@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  /* UNdeC Malva Institucional */
+  --malva-base: #826170;
+  --malva-dark: #4F3A44;
+  --malva-medium: #A98B99;
+  --malva-light: #D5C3CC;
+  --malva-subtle: #F1E9ED;
+
+  /* UNdeC Dorado Institucional */
+  --gold-base: #E5B115;
+  --gold-dark: #A07A0B;
+  --gold-light: #F3DC94;
+  --gold-text: #1A1A1A;
+
+  /* Neutrals (warm neutrals) */
+  --neutral-page: #FAF8F7;
+  --neutral-card: #FFFFFF;
+  --neutral-border: #E6E0DD;
+  --neutral-text: #1F1A1C;
+  --neutral-secondary: #6B6166;
+  --neutral-grid: #EAE5E2;
+
+  /* Chart series palette */
+  --chart-1: #826170;
+  --chart-2: #E5B115;
+  --chart-3: #4F3A44;
+  --chart-4: #A07A0B;
+  --chart-5: #A98B99;
+  --chart-6: #8A8A85;
+
+  /* Functional status colors */
+  --status-cumple: #3F6B4F;
+  --status-observacion: #A07A0B;
+  --status-nocumple: #A33B2F;
+
+  /* Shadcn / standard semantic mappings */
+  --background: #FAF8F7;
+  --foreground: #1F1A1C;
+  --card: #FFFFFF;
+  --card-foreground: #1F1A1C;
+  --popover: #FFFFFF;
+  --popover-foreground: #1F1A1C;
+  --primary: #826170;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1E9ED;
+  --secondary-foreground: #4F3A44;
+  --muted: #F5F1EF;
+  --muted-foreground: #6B6166;
+  --accent: #E5B115;
+  --accent-foreground: #1A1A1A;
+  --destructive: #A33B2F;
+  --destructive-foreground: #FFFFFF;
+  --border: #E6E0DD;
+  --input: #E6E0DD;
+  --ring: #826170;
+  --radius: 0.5rem;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom scrollbars and table styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1E9ED;
+}
+::-webkit-scrollbar-thumb {
+  background: #D5C3CC;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A98B99;
+}
