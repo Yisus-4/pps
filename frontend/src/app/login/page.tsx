@@ -69,7 +69,7 @@ export default function LoginPage() {
           Universidad Nacional de Chilecito
         </p>
         <h2 className="mt-2 text-center text-lg font-medium text-[#1F1A1C]">
-          Dashboard Académico SIU Guaraní
+          Dashboard Académico
         </h2>
       </div>
 

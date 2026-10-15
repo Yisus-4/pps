@@ -25,6 +25,15 @@ export interface UserCreatePayload {
   escuela_id?: number | null;
 }
 
+export interface UserUpdatePayload {
+  email?: string;
+  full_name?: string;
+  password?: string;
+  role?: UserRole;
+  escuela_id?: number | null;
+  is_active?: boolean;
+}
+
 export interface Escuela {
   id: number;
   nombre: string;
@@ -76,9 +85,25 @@ export interface AlumnosPaginatedResponse {
 }
 
 export interface UploadResponse {
+  carga_id?: number;
   escuela: string;
   propuesta: string;
   total_procesados: number;
+  nuevos: number;
+  actualizados: number;
+}
+
+export interface CargaHistorial {
+  id: number;
+  filename: string;
+  escuela_id: number;
+  escuela_nombre: string;
+  propuesta_id: number | null;
+  propuesta_nombre: string | null;
+  usuario_id?: number | null;
+  usuario_nombre?: string | null;
+  fecha_carga: string;
+  total_filas: number;
   nuevos: number;
   actualizados: number;
 }

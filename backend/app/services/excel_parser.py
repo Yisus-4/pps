@@ -10,6 +10,7 @@ import openpyxl
 from app.models.escuela import Escuela
 from app.models.user import User, UserRole
 from app.models.propuesta import PropuestaFormativa
+from app.models.carga import CargaHistorial
 from app.models.alumno import Alumno
 
 
@@ -337,6 +338,20 @@ def process_siu_upload(
             propuesta.ubicacion = clean_str(metadata.get("ubicacion"))
         propuesta.updated_at = now_utc
 
+    # Create CargaHistorial record
+    carga_historial = CargaHistorial(
+        filename=filename,
+        escuela_id=db_escuela.id,
+        propuesta_id=propuesta.id,
+        usuario_id=current_user.id if current_user else None,
+        fecha_carga=now_utc,
+        total_filas=0,
+        nuevos=0,
+        actualizados=0
+    )
+    db.add(carga_historial)
+    db.flush()
+
     # 6. Upsert students for this propuesta
     # Fetch existing students for this propuesta into memory indexed by documento
     existing_students = {
@@ -352,6 +367,7 @@ def process_siu_upload(
         if doc in existing_students:
             # Update existing alumno
             alumno = existing_students[doc]
+            alumno.carga_id = carga_historial.id
             alumno.apellido_nombre = s_data["apellido_nombre"]
             alumno.fecha_nacimiento = s_data["fecha_nacimiento"]
             alumno.email = s_data["email"]
@@ -375,6 +391,7 @@ def process_siu_upload(
             # Create new alumno
             new_alumno = Alumno(
                 propuesta_id=propuesta.id,
+                carga_id=carga_historial.id,
                 apellido_nombre=s_data["apellido_nombre"],
                 documento=s_data["documento"],
                 fecha_nacimiento=s_data["fecha_nacimiento"],
@@ -399,9 +416,14 @@ def process_siu_upload(
             existing_students[doc] = new_alumno
             nuevos += 1
 
+    carga_historial.total_filas = nuevos + actualizados
+    carga_historial.nuevos = nuevos
+    carga_historial.actualizados = actualizados
+
     db.commit()
 
     return {
+        "carga_id": carga_historial.id,
         "escuela": db_escuela.nombre,
         "propuesta": propuesta.nombre,
         "total_procesados": nuevos + actualizados,

@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import inspect, text
+
 from app.database import engine, SessionLocal, Base
 from app.seed import seed_database
 import app.models  # Ensure all models are registered
@@ -18,6 +20,17 @@ from app.routers import (
 async def lifespan(app: FastAPI):
     # Startup: create tables and seed initial data
     Base.metadata.create_all(bind=engine)
+    try:
+        with engine.connect() as conn:
+            inspector = inspect(engine)
+            if "alumnos" in inspector.get_table_names():
+                columns = [c["name"] for c in inspector.get_columns("alumnos")]
+                if "carga_id" not in columns:
+                    conn.execute(text("ALTER TABLE alumnos ADD COLUMN carga_id INTEGER REFERENCES cargas_historial(id)"))
+                    conn.commit()
+    except Exception:
+        pass
+
     with SessionLocal() as db:
         seed_database(db)
     yield

@@ -1,11 +1,13 @@
 import {
   AlumnosPaginatedResponse,
+  CargaHistorial,
   Escuela,
   LoginResponse,
   PropuestaFormativa,
   UploadResponse,
   User,
   UserCreatePayload,
+  UserUpdatePayload,
 } from "@/types";
 
 const getApiBaseUrl = (): string => {
@@ -171,6 +173,24 @@ export const uploadApi = {
       body: formData,
     });
   },
+
+  getHistorial: async (escuelaId?: number): Promise<CargaHistorial[]> => {
+    const qs = escuelaId ? `?escuela_id=${escuelaId}` : "";
+    return request<CargaHistorial[]>(`/api/upload/historial${qs}`, {
+      method: "GET",
+    });
+  },
+
+  revertCarga: async (
+    cargaId: number
+  ): Promise<{ message: string; alumnos_eliminados: number }> => {
+    return request<{ message: string; alumnos_eliminados: number }>(
+      `/api/upload/historial/${cargaId}`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
 };
 
 export const usersApi = {
@@ -184,6 +204,22 @@ export const usersApi = {
     return request<User>("/api/users", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+
+  updateUser: async (
+    userId: number,
+    payload: UserUpdatePayload
+  ): Promise<User> => {
+    return request<User>(`/api/users/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  deleteUser: async (userId: number): Promise<{ message: string }> => {
+    return request<{ message: string }>(`/api/users/${userId}`, {
+      method: "DELETE",
     });
   },
 };

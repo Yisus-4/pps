@@ -13,6 +13,7 @@ class Alumno(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     propuesta_id = Column(Integer, ForeignKey("propuestas_formativas.id", ondelete="CASCADE"), nullable=False, index=True)
+    carga_id = Column(Integer, ForeignKey("cargas_historial.id", ondelete="CASCADE"), nullable=True, index=True)
     
     apellido_nombre = Column(String(255), nullable=False, index=True)
     documento = Column(String(100), nullable=False, index=True)
@@ -35,6 +36,7 @@ class Alumno(Base):
     updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
 
     propuesta = relationship("PropuestaFormativa", back_populates="alumnos")
+    carga = relationship("CargaHistorial", back_populates="alumnos")
 
     __table_args__ = (
         UniqueConstraint("propuesta_id", "documento", name="uq_alumno_propuesta_documento"),

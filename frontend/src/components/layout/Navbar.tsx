@@ -12,7 +12,6 @@ import {
   Menu,
   X,
   Shield,
-  Building2,
 } from "lucide-react";
 
 export function Navbar() {
@@ -64,9 +63,6 @@ export function Navbar() {
                   <span className="font-extrabold text-xl tracking-tight text-[#4F3A44]">
                     UNdeC
                   </span>
-                  <span className="text-xs px-1.5 py-0.5 rounded-sm bg-[#F1E9ED] text-[#826170] font-semibold">
-                    SIU
-                  </span>
                 </div>
                 <p className="text-[11px] text-[#6B6166] leading-none hidden sm:block">
                   Universidad Nacional de Chilecito
@@ -103,15 +99,10 @@ export function Navbar() {
                 <span className="text-sm font-semibold text-[#1F1A1C]">
                   {user.full_name}
                 </span>
-                {isAdmin ? (
+                {isAdmin && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF3DD] text-[#A07A0B] border border-[#E5B115]/30">
                     <Shield className="w-3 h-3 mr-1 text-[#A07A0B]" />
                     ADMIN
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F1E9ED] text-[#826170] border border-[#D5C3CC]">
-                    <Building2 className="w-3 h-3 mr-1 text-[#826170]" />
-                    RESPONSABLE
                   </span>
                 )}
               </div>
@@ -158,9 +149,11 @@ export function Navbar() {
             <p className="text-sm font-semibold text-[#1F1A1C]">{user.full_name}</p>
             <p className="text-xs text-[#6B6166]">{user.email}</p>
             <div className="mt-1 flex items-center space-x-2">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-sm bg-[#F1E9ED] text-[#826170]">
-                {user.role}
-              </span>
+              {isAdmin && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-sm bg-[#FAF3DD] text-[#A07A0B] border border-[#E5B115]/30">
+                  ADMIN
+                </span>
+              )}
               {user.escuela_nombre && (
                 <span className="text-xs text-[#6B6166]">
                   {user.escuela_nombre}

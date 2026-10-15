@@ -18,6 +18,15 @@ class UserCreate(BaseModel):
     escuela_id: Optional[int] = None
 
 
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    escuela_id: Optional[int] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class UserOut(BaseModel):
     id: int
     email: str
