@@ -339,3 +339,56 @@ def test_current_year_enrollment_activos_logic(client, admin_headers, db_session
     assert res_act.status_code == 200
     assert res_act.json()["total"] == 0
 
+
+def test_chronological_sorting_edad_and_ultimo_examen(client, admin_headers):
+    # 1. Test sort_by=fecha_nacimiento&sort_dir=asc (menor a mayor edad: younger first / latest birth dates first)
+    res_fn_asc = client.get("/api/alumnos?sort_by=fecha_nacimiento&sort_dir=asc&limit=10", headers=admin_headers)
+    assert res_fn_asc.status_code == 200
+    items_fn_asc = res_fn_asc.json()["items"]
+    assert len(items_fn_asc) == 10
+    # Top results should have recent birth years (younger students, e.g. 2000s/2020s)
+    top_fn_asc_years = [int(i["fecha_nacimiento"].split("/")[-1]) for i in items_fn_asc if i["fecha_nacimiento"]]
+    assert all(yr >= 2007 for yr in top_fn_asc_years)
+
+    # Bottom results should have older birth years
+    total_pages = res_fn_asc.json()["total_pages"]
+    res_fn_asc_last = client.get(f"/api/alumnos?sort_by=fecha_nacimiento&sort_dir=asc&page={total_pages}&limit=10", headers=admin_headers)
+    assert res_fn_asc_last.status_code == 200
+    items_fn_asc_last = [i for i in res_fn_asc_last.json()["items"] if i["fecha_nacimiento"]]
+    bottom_fn_asc_years = [int(i["fecha_nacimiento"].split("/")[-1]) for i in items_fn_asc_last]
+    assert any(yr <= 1975 for yr in bottom_fn_asc_years)
+
+    # Also verify sort_by=edad works equivalently to fecha_nacimiento
+    res_edad_asc = client.get("/api/alumnos?sort_by=edad&sort_dir=asc&limit=10", headers=admin_headers)
+    assert res_edad_asc.status_code == 200
+    assert [i["id"] for i in res_edad_asc.json()["items"]] == [i["id"] for i in items_fn_asc]
+
+    # 2. Test sort_by=fecha_nacimiento&sort_dir=desc (mayor a menor edad: older first / earliest birth dates first)
+    res_fn_desc = client.get("/api/alumnos?sort_by=fecha_nacimiento&sort_dir=desc&limit=10", headers=admin_headers)
+    assert res_fn_desc.status_code == 200
+    items_fn_desc = res_fn_desc.json()["items"]
+    assert len(items_fn_desc) == 10
+    top_fn_desc_years = [int(i["fecha_nacimiento"].split("/")[-1]) for i in items_fn_desc if i["fecha_nacimiento"]]
+    # Top results should be older students (e.g. 1961, 1971, etc.)
+    assert any(yr <= 1975 for yr in top_fn_desc_years)
+    assert all(yr <= 1985 for yr in top_fn_desc_years)
+
+    # 3. Test sort_by=ultimo_examen&sort_dir=asc (oldest exam dates first, e.g. 2018/2019)
+    res_ue_asc = client.get("/api/alumnos?sort_by=ultimo_examen&sort_dir=asc&limit=10", headers=admin_headers)
+    assert res_ue_asc.status_code == 200
+    items_ue_asc = res_ue_asc.json()["items"]
+    assert len(items_ue_asc) == 10
+    top_ue_asc_years = [int(i["ultimo_examen"].split("/")[-1]) for i in items_ue_asc if i["ultimo_examen"]]
+    # Top results should be older exams (e.g. 2018/2019)
+    assert all(yr in (2018, 2019, 2020) for yr in top_ue_asc_years)
+
+    # 4. Test sort_by=ultimo_examen&sort_dir=desc (most recent exam dates first, e.g. 2026)
+    res_ue_desc = client.get("/api/alumnos?sort_by=ultimo_examen&sort_dir=desc&limit=10", headers=admin_headers)
+    assert res_ue_desc.status_code == 200
+    items_ue_desc = res_ue_desc.json()["items"]
+    assert len(items_ue_desc) == 10
+    top_ue_desc_years = [int(i["ultimo_examen"].split("/")[-1]) for i in items_ue_desc if i["ultimo_examen"]]
+    # Top results should be recent exams (2026)
+    assert all(yr == 2026 for yr in top_ue_desc_years)
+
+

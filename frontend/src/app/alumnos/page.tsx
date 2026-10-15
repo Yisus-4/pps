@@ -671,7 +671,7 @@ export default function AlumnosPage() {
                     </th>
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
                     <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Documento</th>
-                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44] text-center">Edad</th>
+                    {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
                     <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Legajo</th>
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
                     {renderSortableHeader("duracion", "Duración", "px-3 py-3.5", "center")}
@@ -791,7 +791,7 @@ export default function AlumnosPage() {
                     </th>
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
                     <th scope="col" className="px-4 py-3.5 select-none font-bold text-[#4F3A44]">Documento</th>
-                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44] text-center">Edad</th>
+                    {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
                     <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Legajo</th>
                     {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}

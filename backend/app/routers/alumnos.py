@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, case
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.propuesta import PropuestaFormativa
@@ -181,6 +181,17 @@ def get_alumnos(
     total_pages = math.ceil(total / limit) if total > 0 else 0
     offset = (page - 1) * limit
     # Dynamic sorting
+    birth_date_expr = case(
+        (Alumno.fecha_nacimiento.like("%/%/%"),
+         func.substr(Alumno.fecha_nacimiento, 7, 4) + "-" + func.substr(Alumno.fecha_nacimiento, 4, 2) + "-" + func.substr(Alumno.fecha_nacimiento, 1, 2)),
+        else_=Alumno.fecha_nacimiento
+    )
+    exam_date_expr = case(
+        (Alumno.ultimo_examen.like("%/%/%"),
+         func.substr(Alumno.ultimo_examen, 7, 4) + "-" + func.substr(Alumno.ultimo_examen, 4, 2) + "-" + func.substr(Alumno.ultimo_examen, 1, 2)),
+        else_=Alumno.ultimo_examen
+    )
+
     sort_fields = {
         "apellido_nombre": Alumno.apellido_nombre,
         "plan": Alumno.plan,
@@ -190,18 +201,20 @@ def get_alumnos(
         "promedio_con_aplazos": Alumno.promedio_con_aplazos,
         "promedio_sin_aplazos": Alumno.promedio_sin_aplazos,
         "actividades_aprobadas": Alumno.actividades_aprobadas,
-        "ultimo_examen": Alumno.ultimo_examen,
+        "ultimo_examen": exam_date_expr,
         "ultima_reinscripcion": Alumno.ultima_reinscripcion,
+        "fecha_nacimiento": birth_date_expr,
+        "edad": birth_date_expr,
     }
     sort_col = sort_fields.get(sort_by, Alumno.apellido_nombre)
     is_desc = bool(sort_dir and sort_dir.lower() == "desc")
-    if sort_by == "duracion":
+    if sort_by in ("duracion", "edad", "fecha_nacimiento"):
         is_desc = not is_desc
 
     if is_desc:
         query = query.order_by(sort_col.desc().nullslast())
     else:
-        query = query.order_by(sort_col.asc().nullslast() if sort_by == "duracion" else sort_col.asc().nullsfirst())
+        query = query.order_by(sort_col.asc().nullslast() if sort_by in ("duracion", "edad", "fecha_nacimiento", "ultimo_examen") else sort_col.asc().nullsfirst())
 
     db_alumnos = query.offset(offset).limit(limit).all()
 
