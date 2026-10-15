@@ -19,6 +19,8 @@ def get_alumnos(
     propuesta_id: Optional[int] = Query(None, description="Filtrar por Propuesta Formativa (Carrera)"),
     search: Optional[str] = Query(None, description="Buscar por nombre o documento"),
     estado_inscripcion: Optional[str] = Query(None, description="Filtrar por estado de inscripción"),
+    sort_by: Optional[str] = Query("apellido_nombre", description="Campo por el cual ordenar"),
+    sort_dir: Optional[str] = Query("asc", description="Dirección del ordenamiento: 'asc' o 'desc'"),
     page: int = Query(1, ge=1, description="Número de página"),
     limit: int = Query(50, ge=1, le=500, description="Cantidad por página"),
     db: Session = Depends(get_db),
@@ -62,7 +64,26 @@ def get_alumnos(
     # Pagination
     total_pages = math.ceil(total / limit) if total > 0 else 0
     offset = (page - 1) * limit
-    db_alumnos = query.order_by(Alumno.apellido_nombre.asc()).offset(offset).limit(limit).all()
+    # Dynamic sorting
+    sort_fields = {
+        "documento": Alumno.documento,
+        "apellido_nombre": Alumno.apellido_nombre,
+        "legajo": Alumno.legajo,
+        "plan": Alumno.plan,
+        "anio_ingreso": Alumno.anio_ingreso,
+        "estado_inscripcion": Alumno.estado_inscripcion,
+        "promedio_con_aplazos": Alumno.promedio_con_aplazos,
+        "promedio_sin_aplazos": Alumno.promedio_sin_aplazos,
+        "actividades_aprobadas": Alumno.actividades_aprobadas,
+        "ultimo_examen": Alumno.ultimo_examen,
+    }
+    sort_col = sort_fields.get(sort_by, Alumno.apellido_nombre)
+    if sort_dir and sort_dir.lower() == "desc":
+        query = query.order_by(sort_col.desc().nullslast())
+    else:
+        query = query.order_by(sort_col.asc().nullsfirst())
+
+    db_alumnos = query.offset(offset).limit(limit).all()
 
     items = []
     for a in db_alumnos:

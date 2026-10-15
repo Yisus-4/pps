@@ -11,14 +11,15 @@ import {
   Download,
   RotateCw,
   GraduationCap,
-  Users,
   CheckCircle2,
   Clock,
   XCircle,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
-  Award,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   X,
 } from "lucide-react";
 
@@ -31,7 +32,8 @@ export default function AlumnosPage() {
   const [propuestas, setPropuestas] = useState<PropuestaFormativa[]>([]);
   const [selectedPropuestaId, setSelectedPropuestaId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [estadoInscripcion, setEstadoInscripcion] = useState("");
+  const [sortBy, setSortBy] = useState<string>("apellido_nombre");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
 
@@ -84,6 +86,50 @@ export default function AlumnosPage() {
     fetchPropuestas();
   }, [selectedEscuelaId]);
 
+  // Sort handler
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortDir("asc");
+    }
+    setPage(1);
+  };
+
+  const renderSortableHeader = (
+    field: string,
+    label: string,
+    className = "px-4 py-3.5",
+    align: "left" | "center" = "left"
+  ) => {
+    const isSorted = sortBy === field;
+    return (
+      <th
+        key={field}
+        scope="col"
+        onClick={() => handleSort(field)}
+        className={`${className} cursor-pointer select-none transition-colors hover:bg-[#F1E9ED]/70 group`}
+        title={`Ordenar por ${label} (${isSorted ? (sortDir === "asc" ? "descendente" : "ascendente") : "ascendente"})`}
+      >
+        <div className={`flex items-center space-x-1.5 ${align === "center" ? "justify-center" : ""}`}>
+          <span className={isSorted ? "text-[#826170] font-black" : ""}>{label}</span>
+          <span className="inline-flex items-center">
+            {isSorted ? (
+              sortDir === "asc" ? (
+                <ArrowUp className="w-3.5 h-3.5 text-[#826170]" />
+              ) : (
+                <ArrowDown className="w-3.5 h-3.5 text-[#826170]" />
+              )
+            ) : (
+              <ArrowUpDown className="w-3 h-3 text-[#A98B99] opacity-40 group-hover:opacity-100 transition-opacity" />
+            )}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
   // Load students query
   const executeQuery = useCallback(async () => {
     try {
@@ -91,7 +137,8 @@ export default function AlumnosPage() {
         escuela_id: selectedEscuelaId,
         propuesta_id: selectedPropuestaId,
         search: searchTerm,
-        estado_inscripcion: estadoInscripcion || undefined,
+        sort_by: sortBy,
+        sort_dir: sortDir,
         page,
         limit,
       });
@@ -108,7 +155,7 @@ export default function AlumnosPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, estadoInscripcion, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, sortBy, sortDir, page, limit]);
 
   useEffect(() => {
     let ignore = false;
@@ -118,7 +165,8 @@ export default function AlumnosPage() {
           escuela_id: selectedEscuelaId,
           propuesta_id: selectedPropuestaId,
           search: searchTerm,
-          estado_inscripcion: estadoInscripcion || undefined,
+          sort_by: sortBy,
+          sort_dir: sortDir,
           page,
           limit,
         });
@@ -147,7 +195,7 @@ export default function AlumnosPage() {
     return () => {
       ignore = true;
     };
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, estadoInscripcion, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, sortBy, sortDir, page, limit]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -253,62 +301,34 @@ export default function AlumnosPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                  Total en Vista
-                </p>
-                <p className="text-2xl font-black text-[#1F1A1C] mt-1">{total}</p>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-[#F1E9ED] text-[#826170] flex items-center justify-center">
-                <Users className="w-5 h-5" />
-              </div>
-            </div>
+            <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+              Total en Vista
+            </p>
+            <p className="text-2xl font-black text-[#1F1A1C] mt-1">{total}</p>
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#3F6B4F]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                  Regulares (Pág.)
-                </p>
-                <p className="text-2xl font-black text-[#3F6B4F] mt-1">{regularesCount}</p>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-[#EBF3EE] text-[#3F6B4F] flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-            </div>
+            <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+              Regulares (Pág.)
+            </p>
+            <p className="text-2xl font-black text-[#3F6B4F] mt-1">{regularesCount}</p>
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#E5B115]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                  Aspirantes (Pág.)
-                </p>
-                <p className="text-2xl font-black text-[#A07A0B] mt-1">{aspirantesCount}</p>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-[#FAF3DD] text-[#A07A0B] flex items-center justify-center">
-                <Clock className="w-5 h-5" />
-              </div>
-            </div>
+            <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+              Aspirantes (Pág.)
+            </p>
+            <p className="text-2xl font-black text-[#A07A0B] mt-1">{aspirantesCount}</p>
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#A98B99]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                  Prom. c/ Aplazos
-                </p>
-                <p className="text-2xl font-black text-[#4F3A44] mt-1">{averageWithFails}</p>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-[#F1E9ED] text-[#826170] flex items-center justify-center">
-                <Award className="w-5 h-5" />
-              </div>
-            </div>
+            <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+              Prom. c/ Aplazos
+            </p>
+            <p className="text-2xl font-black text-[#4F3A44] mt-1">{averageWithFails}</p>
           </div>
         </div>
 
@@ -316,7 +336,7 @@ export default function AlumnosPage() {
         <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
             {/* Search Input */}
-            <div className="md:col-span-4 relative">
+            <div className="md:col-span-5 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6B6166]">
                 <Search className="w-4 h-4" />
               </div>
@@ -354,7 +374,7 @@ export default function AlumnosPage() {
             </div>
 
             {/* Carrera (Propuesta Formativa) Dropdown */}
-            <div className="md:col-span-3">
+            <div className="md:col-span-4">
               <select
                 value={selectedPropuestaId || ""}
                 onChange={(e) => {
@@ -379,26 +399,6 @@ export default function AlumnosPage() {
                 ))}
               </select>
             </div>
-
-            {/* Estado de Inscripción */}
-            <div className="md:col-span-2">
-              <select
-                value={estadoInscripcion}
-                onChange={(e) => {
-                  setEstadoInscripcion(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-2 text-xs border border-[#E6E0DD] rounded-lg text-[#1F1A1C] bg-white focus:outline-hidden focus:ring-2 focus:ring-[#826170]"
-              >
-                <option value="">Todos los Estados</option>
-                <option value="REGULAR">REGULAR</option>
-                <option value="ASPIRANTE">ASPIRANTE</option>
-                <option value="ACEPTADA">ACEPTADA</option>
-                <option value="NO REGULAR">NO REGULAR</option>
-                <option value="RECHAZADO">RECHAZADO</option>
-                <option value="REINSC">REINSC</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -421,36 +421,16 @@ export default function AlumnosPage() {
             <table className="min-w-full divide-y divide-[#E6E0DD] text-left text-xs">
               <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
                 <tr>
-                  <th scope="col" className="px-4 py-3.5">
-                    Documento
-                  </th>
-                  <th scope="col" className="px-4 py-3.5">
-                    Apellido y Nombre
-                  </th>
-                  <th scope="col" className="px-3 py-3.5">
-                    Legajo
-                  </th>
-                  <th scope="col" className="px-3 py-3.5">
-                    Plan
-                  </th>
-                  <th scope="col" className="px-3 py-3.5">
-                    Año Ingreso
-                  </th>
-                  <th scope="col" className="px-3 py-3.5">
-                    Estado Inscripción
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 text-center">
-                    Prom. c/ Apl.
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 text-center">
-                    Prom. s/ Apl.
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 text-center">
-                    Actividades
-                  </th>
-                  <th scope="col" className="px-4 py-3.5">
-                    Último Examen
-                  </th>
+                  {renderSortableHeader("documento", "Documento", "px-4 py-3.5")}
+                  {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
+                  {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
+                  {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
+                  {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5")}
+                  {renderSortableHeader("estado_inscripcion", "Estado Inscripción", "px-3 py-3.5")}
+                  {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
+                  {renderSortableHeader("promedio_sin_aplazos", "Prom. s/ Apl.", "px-3 py-3.5", "center")}
+                  {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
+                  {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E6E0DD] bg-white">
