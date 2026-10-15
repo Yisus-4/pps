@@ -55,6 +55,7 @@ def get_alumnos(
     propuesta_id: Optional[int] = Query(None, description="Filtrar por Propuesta Formativa (Carrera)"),
     search: Optional[str] = Query(None, description="Buscar por nombre o documento"),
     estado_inscripcion: Optional[str] = Query(None, description="Filtrar por estado de inscripción"),
+    condicion: Optional[str] = Query(None, description="Filtrar por 'activos', 'inactivos', 'recibidos'"),
     sort_by: Optional[str] = Query("apellido_nombre", description="Campo por el cual ordenar"),
     sort_dir: Optional[str] = Query("asc", description="Dirección del ordenamiento: 'asc' o 'desc'"),
     page: int = Query(1, ge=1, description="Número de página"),
@@ -94,25 +95,61 @@ def get_alumnos(
     if estado_inscripcion:
         query = query.filter(Alumno.estado_inscripcion == estado_inscripcion)
 
-    # Count total matching
-    total = query.count()
-
-    # Calculate activos matching the active query (before pagination offset/limit)
-    # whose ultimo_examen is within the last 12 months (365 days from current date datetime.now())
+    # Date boundaries for activos (within the last 12 months / 365 days)
     now = datetime.now()
     cutoff_date = (now - timedelta(days=365)).date()
     today_limit = (now + timedelta(days=1)).date()
 
+    # Filter by condicion: 'activos', 'inactivos', 'recibidos'
+    if condicion:
+        cond = condicion.strip().lower()
+        if cond in ("activos", "inactivos", "recibidos"):
+            candidate_rows = query.with_entities(
+                Alumno.id,
+                Alumno.ultimo_examen,
+                Alumno.total_actividades,
+                Alumno.actividades_aprobadas
+            ).all()
+
+            matching_ids = []
+            for a_id, exam_str, total_act, aprob_act in candidate_rows:
+                is_egresado = (total_act or 0) > 0 and (aprob_act or 0) >= (total_act or 0)
+                if cond == "recibidos":
+                    if is_egresado:
+                        matching_ids.append(a_id)
+                elif is_egresado:
+                    continue
+                else:
+                    dt = parse_date_robust(exam_str)
+                    is_active = bool(dt and cutoff_date <= dt.date() <= today_limit)
+                    if cond == "activos" and is_active:
+                        matching_ids.append(a_id)
+                    elif cond == "inactivos" and not is_active:
+                        matching_ids.append(a_id)
+
+            query = query.filter(Alumno.id.in_(matching_ids))
+
+    # Count total matching
+    total = query.count()
+
+    # Calculate activos matching the active query (before pagination offset/limit)
+    # whose ultimo_examen is within the last 12 months (365 days) and who are NOT egresados
     activos = 0
-    exam_rows = query.with_entities(Alumno.ultimo_examen).filter(
+    exam_rows = query.with_entities(
+        Alumno.ultimo_examen,
+        Alumno.total_actividades,
+        Alumno.actividades_aprobadas
+    ).filter(
         Alumno.ultimo_examen.isnot(None),
         Alumno.ultimo_examen != ""
     ).all()
 
-    for (exam_str,) in exam_rows:
-        dt = parse_date_robust(exam_str)
-        if dt and cutoff_date <= dt.date() <= today_limit:
-            activos += 1
+    for exam_str, total_act, aprob_act in exam_rows:
+        is_egresado = (total_act or 0) > 0 and (aprob_act or 0) >= (total_act or 0)
+        if not is_egresado:
+            dt = parse_date_robust(exam_str)
+            if dt and cutoff_date <= dt.date() <= today_limit:
+                activos += 1
 
     # Calculate promedio_historico
     # When propuesta_id is specified:

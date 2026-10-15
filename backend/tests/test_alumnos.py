@@ -32,8 +32,8 @@ def test_query_alumnos_pagination(client, admin_headers):
     assert data["limit"] == 20
     assert data["total_pages"] == 14
     assert len(data["items"]) == 20
-    # propuesta_id is None -> promedio_historico is None, activos is computed for all 275
-    assert data["activos"] == 60
+    # propuesta_id is None -> promedio_historico is None, activos is computed for all 275 (excluding egresados)
+    assert data["activos"] == 58
     assert data["promedio_historico"] is None
 
 
@@ -94,7 +94,7 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
     assert res.status_code == 200
     data = res.json()
     assert data["total"] == 275
-    assert data["activos"] == 60
+    assert data["activos"] == 58
     assert data["promedio_historico"] == 8.01
 
     # Verify that sorting by any field does NOT change total, activos, or promedio_historico
@@ -119,7 +119,7 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
             assert res_sort.status_code == 200
             s_data = res_sort.json()
             assert s_data["total"] == 275, f"Total changed on sorting by {field} {sort_dir}"
-            assert s_data["activos"] == 60, f"Activos changed on sorting by {field} {sort_dir}"
+            assert s_data["activos"] == 58, f"Activos changed on sorting by {field} {sort_dir}"
             assert s_data["promedio_historico"] == 8.01, f"Promedio historico changed on sorting by {field} {sort_dir}"
             assert len(s_data["items"]) == 10
 
@@ -159,3 +159,47 @@ def test_activos_date_formats_dd_mm_yyyy_and_yyyy_mm_dd(client, admin_headers, d
     assert res_exp.status_code == 200
     assert res_exp.json()["total"] == 1
     assert res_exp.json()["activos"] == 0
+
+
+def test_condicion_filtering_and_egresados_exclusion(client, admin_headers):
+    # Total students is 275, of which 5 are egresados, 58 are activos, 212 are inactivos
+    res_all = client.get("/api/alumnos", headers=admin_headers)
+    assert res_all.status_code == 200
+    data_all = res_all.json()
+    assert data_all["total"] == 275
+    assert data_all["activos"] == 58
+
+    # 1. Filter by 'activos': students who are NOT egresados and have exam within last 12 months
+    res_act = client.get("/api/alumnos?condicion=activos&limit=100", headers=admin_headers)
+    assert res_act.status_code == 200
+    data_act = res_act.json()
+    assert data_act["total"] == 58
+    assert data_act["activos"] == 58
+    for item in data_act["items"]:
+        is_egresado = item["total_actividades"] > 0 and item["actividades_aprobadas"] >= item["total_actividades"]
+        assert not is_egresado
+        assert item["ultimo_examen"] is not None
+
+    # 2. Filter by 'inactivos': students who are NOT egresados and have NO exam in last 12 months
+    res_inact = client.get("/api/alumnos?condicion=inactivos&limit=100", headers=admin_headers)
+    assert res_inact.status_code == 200
+    data_inact = res_inact.json()
+    assert data_inact["total"] == 212
+    assert data_inact["activos"] == 0
+    for item in data_inact["items"]:
+        is_egresado = item["total_actividades"] > 0 and item["actividades_aprobadas"] >= item["total_actividades"]
+        assert not is_egresado
+
+    # 3. Filter by 'recibidos': graduated students (total_actividades > 0 and actividades_aprobadas >= total_actividades)
+    res_rec = client.get("/api/alumnos?condicion=recibidos&limit=100", headers=admin_headers)
+    assert res_rec.status_code == 200
+    data_rec = res_rec.json()
+    assert data_rec["total"] == 5
+    assert data_rec["activos"] == 0
+    for item in data_rec["items"]:
+        assert item["total_actividades"] > 0
+        assert item["actividades_aprobadas"] >= item["total_actividades"]
+
+    # Sum of partitioned subsets must equal total alumnos
+    assert data_act["total"] + data_inact["total"] + data_rec["total"] == data_all["total"]
+

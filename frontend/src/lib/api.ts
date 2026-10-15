@@ -138,22 +138,26 @@ export const escuelasApi = {
   },
 };
 
+export interface AlumnosQueryParams {
+  escuela_id?: number | null;
+  propuesta_id?: number | null;
+  search?: string;
+  estado_inscripcion?: string;
+  condicion?: string;
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+}
+
 export const alumnosApi = {
-  getAll: async (params: {
-    escuela_id?: number | null;
-    propuesta_id?: number | null;
-    search?: string;
-    estado_inscripcion?: string;
-    sort_by?: string;
-    sort_dir?: "asc" | "desc";
-    page?: number;
-    limit?: number;
-  }): Promise<AlumnosPaginatedResponse> => {
+  getAll: async (params: AlumnosQueryParams): Promise<AlumnosPaginatedResponse> => {
     const searchParams = new URLSearchParams();
     if (params.escuela_id) searchParams.append("escuela_id", params.escuela_id.toString());
     if (params.propuesta_id) searchParams.append("propuesta_id", params.propuesta_id.toString());
     if (params.search) searchParams.append("search", params.search.trim());
     if (params.estado_inscripcion) searchParams.append("estado_inscripcion", params.estado_inscripcion);
+    if (params.condicion) searchParams.append("condicion", params.condicion);
     if (params.sort_by) searchParams.append("sort_by", params.sort_by);
     if (params.sort_dir) searchParams.append("sort_dir", params.sort_dir);
     if (params.page) searchParams.append("page", params.page.toString());

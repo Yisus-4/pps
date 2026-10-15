@@ -20,7 +20,6 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  LayoutGrid,
   List,
   Table as TableIcon,
   BookOpen,
@@ -32,12 +31,12 @@ import {
 export default function AlumnosPage() {
   const { user, isAdmin } = useAuth();
 
-  // View mode: 'compact' (fits screen without horizontal scroll), 'cards' (responsive grid), 'full' (all 10 columns)
-  const [viewMode, setViewMode] = useState<"compact" | "cards" | "full">(() => {
+  // View mode: 'compact' (fits screen without horizontal scroll), 'full' (all columns)
+  const [viewMode, setViewMode] = useState<"compact" | "full">(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("undec_alumnos_view_mode") as "compact" | "cards" | "full" | null;
-        if (saved && ["compact", "cards", "full"].includes(saved)) {
+        const saved = localStorage.getItem("undec_alumnos_view_mode") as "compact" | "full" | null;
+        if (saved && (saved === "compact" || saved === "full")) {
           return saved;
         }
       } catch {
@@ -53,6 +52,7 @@ export default function AlumnosPage() {
   const [propuestas, setPropuestas] = useState<PropuestaFormativa[]>([]);
   const [selectedPropuestaId, setSelectedPropuestaId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [condicion, setCondicion] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("apellido_nombre");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
@@ -68,7 +68,7 @@ export default function AlumnosPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAlumno, setSelectedAlumno] = useState<Alumno | null>(null);
 
-  const changeViewMode = (mode: "compact" | "cards" | "full") => {
+  const changeViewMode = (mode: "compact" | "full") => {
     setViewMode(mode);
     try {
       localStorage.setItem("undec_alumnos_view_mode", mode);
@@ -169,6 +169,7 @@ export default function AlumnosPage() {
         escuela_id: selectedEscuelaId,
         propuesta_id: selectedPropuestaId,
         search: searchTerm,
+        condicion: condicion || undefined,
         sort_by: sortBy,
         sort_dir: sortDir,
         page,
@@ -189,7 +190,7 @@ export default function AlumnosPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, sortBy, sortDir, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, sortBy, sortDir, page, limit]);
 
   useEffect(() => {
     let ignore = false;
@@ -199,6 +200,7 @@ export default function AlumnosPage() {
           escuela_id: selectedEscuelaId,
           propuesta_id: selectedPropuestaId,
           search: searchTerm,
+          condicion: condicion || undefined,
           sort_by: sortBy,
           sort_dir: sortDir,
           page,
@@ -231,7 +233,7 @@ export default function AlumnosPage() {
     return () => {
       ignore = true;
     };
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, sortBy, sortDir, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, sortBy, sortDir, page, limit]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -279,6 +281,62 @@ export default function AlumnosPage() {
       return `${digits.slice(0, 4)} ${digits.slice(4)}`;
     }
     return phoneStr.trim();
+  };
+
+  // Helper: Clasificación de condición del alumno (Recibido, Activo, Inactivo)
+  const getStudentCondition = (a: Alumno): "recibido" | "activo" | "inactivo" => {
+    if (a.total_actividades > 0 && a.actividades_aprobadas >= a.total_actividades) {
+      return "recibido";
+    }
+    if (!a.ultimo_examen || !a.ultimo_examen.trim()) {
+      return "inactivo";
+    }
+    const s = a.ultimo_examen.trim();
+    if (["none", "nan", "-", "s/d"].includes(s.toLowerCase())) {
+      return "inactivo";
+    }
+    const token = s.split(" ")[0].split("T")[0];
+    let dt: Date | null = null;
+    if (token.includes("/")) {
+      const parts = token.split("/");
+      if (parts.length === 3) {
+        const p0 = parseInt(parts[0], 10);
+        const p1 = parseInt(parts[1], 10);
+        const p2 = parseInt(parts[2], 10);
+        if (p0 > 1000) {
+          dt = new Date(p0, p1 - 1, p2);
+        } else if (p2 > 1000) {
+          dt = new Date(p2, p1 - 1, p0);
+        } else if (p2 < 100) {
+          dt = new Date(2000 + p2, p1 - 1, p0);
+        }
+      }
+    } else if (token.includes("-")) {
+      const parts = token.split("-");
+      if (parts.length === 3) {
+        const p0 = parseInt(parts[0], 10);
+        const p1 = parseInt(parts[1], 10);
+        const p2 = parseInt(parts[2], 10);
+        if (p0 > 1000) {
+          dt = new Date(p0, p1 - 1, p2);
+        } else if (p2 > 1000) {
+          dt = new Date(p2, p1 - 1, p0);
+        }
+      }
+    }
+
+    if (!dt || isNaN(dt.getTime())) {
+      return "inactivo";
+    }
+
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 365);
+    const limit = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+    if (dt >= cutoff && dt <= limit) {
+      return "activo";
+    }
+    return "inactivo";
   };
 
 
@@ -371,19 +429,6 @@ export default function AlumnosPage() {
               >
                 <List className="w-3.5 h-3.5 mr-1" />
                 <span>Compacta</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => changeViewMode("cards")}
-                className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                  viewMode === "cards"
-                    ? "bg-white text-[#4F3A44] shadow-2xs font-bold"
-                    : "text-[#6B6166] hover:text-[#1F1A1C]"
-                }`}
-                title="Vista de fichas: Tarjetas individuales limpias sin tablas"
-              >
-                <LayoutGrid className="w-3.5 h-3.5 mr-1" />
-                <span>Fichas</span>
               </button>
               <button
                 type="button"
@@ -521,6 +566,41 @@ export default function AlumnosPage() {
               </select>
             </div>
           </div>
+
+          {/* Condition Filter Controls */}
+          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[#E6E0DD]">
+            <span className="text-xs font-bold text-[#4F3A44] mr-1">Condición:</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { value: "", label: "Todos los alumnos" },
+                { value: "activos", label: "🟢 Activos" },
+                { value: "inactivos", label: "⚪ Inactivos" },
+                { value: "recibidos", label: "🔵 Recibidos" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => {
+                    setCondicion(item.value);
+                    setPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    condicion === item.value
+                      ? item.value === "activos"
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : item.value === "inactivos"
+                        ? "bg-gray-600 text-white shadow-2xs"
+                        : item.value === "recibidos"
+                        ? "bg-blue-600 text-white shadow-2xs"
+                        : "bg-[#826170] text-white shadow-2xs"
+                      : "bg-[#F1E9ED] text-[#4F3A44] hover:bg-[#E6DEE2]"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -544,6 +624,9 @@ export default function AlumnosPage() {
               <table className="w-full divide-y divide-[#E6E0DD] text-left text-xs">
                 <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
                   <tr>
+                    <th scope="col" className="px-3 py-3.5 text-center w-16" title="Estado">
+                      <span>Estado</span>
+                    </th>
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
                     {renderSortableHeader("documento", "Documento", "px-3 py-3.5")}
                     {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
@@ -557,7 +640,7 @@ export default function AlumnosPage() {
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-14 text-center text-[#6B6166]">
+                      <td colSpan={9} className="px-6 py-14 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -568,7 +651,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-16 text-center">
+                      <td colSpan={9} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -583,153 +666,90 @@ export default function AlumnosPage() {
                       </td>
                     </tr>
                   ) : (
-                    alumnos.map((a) => (
-                      <tr
-                        key={a.id}
-                        onClick={() => setSelectedAlumno(a)}
-                        className="cursor-pointer transition-colors hover:bg-[#F1E9ED]/50 group"
-                      >
-                        <td className="px-4 py-3 font-semibold text-[#1F1A1C] group-hover:text-[#826170] transition-colors whitespace-nowrap">
-                          <div>{a.apellido_nombre}</div>
-                          {a.propuesta_nombre && (
-                            <div className="text-[10px] text-[#6B6166] font-normal truncate max-w-[200px]">
-                              {a.propuesta_nombre}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 font-mono text-[#1F1A1C] whitespace-nowrap">
-                          {a.documento}
-                        </td>
-                        <td className="px-3 py-3 text-center text-[#1F1A1C] font-semibold whitespace-nowrap">
-                          {calculateAge(a.fecha_nacimiento)}
-                        </td>
-                        <td className="px-3 py-3 font-mono text-[#6B6166] whitespace-nowrap">
-                          {a.legajo || "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
-                          {a.anio_ingreso || "-"}
-                        </td>
-                        <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] whitespace-nowrap">
-                          {a.ultimo_examen || "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center font-mono font-bold text-[#826170] whitespace-nowrap">
-                          {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
-                            ? a.promedio_con_aplazos.toFixed(2)
-                            : "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
-                          <span className="font-semibold text-[#4F3A44]">{a.actividades_aprobadas}</span>
-                          {" / "}
-                          <span>{a.total_actividades}</span>
-                        </td>
-                      </tr>
-                    ))
+                    alumnos.map((a) => {
+                      const cond = getStudentCondition(a);
+                      return (
+                        <tr
+                          key={a.id}
+                          onClick={() => setSelectedAlumno(a)}
+                          className="cursor-pointer transition-colors hover:bg-[#F1E9ED]/50 group"
+                        >
+                          <td className="px-3 py-3 text-center whitespace-nowrap">
+                            {cond === "recibido" ? (
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200"
+                                title="Recibido / Egresado"
+                              />
+                            ) : cond === "activo" ? (
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200"
+                                title="Activo (examen en últimos 12 meses)"
+                              />
+                            ) : (
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 ring-2 ring-gray-100"
+                                title="Inactivo (sin examen en los últimos 12 meses)"
+                              />
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-[#1F1A1C] group-hover:text-[#826170] transition-colors whitespace-nowrap">
+                            <div>{a.apellido_nombre}</div>
+                            {a.propuesta_nombre && (
+                              <div className="text-[10px] text-[#6B6166] font-normal truncate max-w-[200px]">
+                                {a.propuesta_nombre}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 font-mono text-[#1F1A1C] whitespace-nowrap">
+                            {a.documento}
+                          </td>
+                          <td className="px-3 py-3 text-center text-[#1F1A1C] font-semibold whitespace-nowrap">
+                            {calculateAge(a.fecha_nacimiento)}
+                          </td>
+                          <td className="px-3 py-3 font-mono text-[#6B6166] whitespace-nowrap">
+                            {a.legajo || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
+                            {a.anio_ingreso || "-"}
+                          </td>
+                          <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] whitespace-nowrap">
+                            {a.ultimo_examen || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono font-bold text-[#826170] whitespace-nowrap">
+                            {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
+                              ? a.promedio_con_aplazos.toFixed(2)
+                              : "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
+                            <span className="font-semibold text-[#4F3A44]">{a.actividades_aprobadas}</span>
+                            {" / "}
+                            <span>{a.total_actividades}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           )}
 
-          {/* 2. Vista de Fichas / Tarjetas */}
-          {viewMode === "cards" && (
-            <div className="p-4 bg-[#FAF8F7]">
-              {isLoading ? (
-                <div className="py-14 text-center text-[#6B6166]">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
-                    <span className="text-xs font-semibold text-[#826170]">
-                      Cargando padrón de alumnos...
-                    </span>
-                  </div>
-                </div>
-              ) : alumnos.length === 0 ? (
-                <div className="py-16 text-center text-[#6B6166]">
-                  <div className="max-w-sm mx-auto flex flex-col items-center">
-                    <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
-                      <GraduationCap className="w-6 h-6" />
-                    </div>
-                    <p className="text-sm font-bold text-[#1F1A1C]">No se encontraron alumnos</p>
-                    <p className="text-xs text-[#6B6166] mt-1 text-center">
-                      Intente ajustar o restablecer los filtros de búsqueda, escuela o carrera.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {alumnos.map((a) => (
-                    <div
-                      key={a.id}
-                      onClick={() => setSelectedAlumno(a)}
-                      className="bg-white border border-[#E6E0DD] hover:border-[#826170] rounded-xl p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between group"
-                    >
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="font-bold text-sm text-[#1F1A1C] group-hover:text-[#826170] transition-colors leading-snug">
-                              {a.apellido_nombre}
-                            </h3>
-                            <p className="text-[11px] text-[#6B6166] font-mono mt-0.5">
-                              {a.documento} • Edad: {calculateAge(a.fecha_nacimiento)}
-                            </p>
-                          </div>
-                          <div className="text-[11px] font-mono bg-[#FAF8F7] px-2 py-0.5 rounded border border-[#E6E0DD] text-[#6B6166]">
-                            Leg: {a.legajo || "-"}
-                          </div>
-                        </div>
-
-                        <div className="my-2.5 pt-2.5 border-t border-[#E6E0DD] text-xs">
-                          <p className="font-semibold text-[#4F3A44] line-clamp-1" title={a.propuesta_nombre || ""}>
-                            {a.propuesta_nombre || "Sin carrera asignada"}
-                          </p>
-                          <p className="text-[11px] text-[#6B6166] mt-0.5">
-                            Ingreso: {a.anio_ingreso || "S/D"} {a.plan ? `• Plan: ${a.plan}` : ""}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 pt-3 border-t border-[#E6E0DD] grid grid-cols-3 gap-2 text-center text-xs bg-[#FAF8F7] p-2 rounded-lg">
-                        <div>
-                          <span className="text-[10px] text-[#6B6166] block">Prom. c/Apl</span>
-                          <span className="font-bold font-mono text-[#826170] text-xs">
-                            {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
-                              ? a.promedio_con_aplazos.toFixed(2)
-                              : "-"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[#6B6166] block">Actividades</span>
-                          <span className="font-bold font-mono text-[#1F1A1C] text-xs">
-                            {a.actividades_aprobadas}/{a.total_actividades}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[#6B6166] block">Últ. Examen</span>
-                          <span className="font-bold font-mono text-[#4F3A44] text-[10px] truncate block">
-                            {a.ultimo_examen || "-"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 3. Vista Completa */}
+          {/* 2. Vista Completa */}
           {viewMode === "full" && (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[#E6E0DD] text-left text-xs">
                 <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
                   <tr>
+                    <th scope="col" className="px-3 py-3.5 text-center w-28" title="Estado">
+                      <span>Estado</span>
+                    </th>
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
                     {renderSortableHeader("documento", "Documento", "px-4 py-3.5")}
                     {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
                     {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
                     {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
-                    {renderSortableHeader("estado_inscripcion", "Estado", "px-3 py-3.5")}
+                    {renderSortableHeader("estado_inscripcion", "Inscripción", "px-3 py-3.5")}
                     {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
                     {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
                     {renderSortableHeader("promedio_sin_aplazos", "Prom. s/ Apl.", "px-3 py-3.5", "center")}
@@ -739,7 +759,7 @@ export default function AlumnosPage() {
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={11} className="px-6 py-12 text-center text-[#6B6166]">
+                      <td colSpan={12} className="px-6 py-12 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -750,7 +770,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="px-6 py-16 text-center">
+                      <td colSpan={12} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -765,55 +785,93 @@ export default function AlumnosPage() {
                       </td>
                     </tr>
                   ) : (
-                    alumnos.map((a) => (
-                      <tr
-                        key={a.id}
-                        onClick={() => setSelectedAlumno(a)}
-                        className="cursor-pointer transition-colors hover:bg-[#FAF8F7]"
-                      >
-                        <td className="px-4 py-3 font-semibold text-[#1F1A1C] whitespace-nowrap">
-                          {a.apellido_nombre}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-[#1F1A1C] whitespace-nowrap">
-                          {a.documento}
-                        </td>
-                        <td className="px-3 py-3 text-center text-[#1F1A1C] font-semibold whitespace-nowrap">
-                          {calculateAge(a.fecha_nacimiento)}
-                        </td>
-                        <td className="px-3 py-3 font-mono text-[#6B6166] whitespace-nowrap">
-                          {a.legajo || "-"}
-                        </td>
-                        <td className="px-3 py-3 text-[#6B6166] whitespace-nowrap">
-                          {a.plan || "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
-                          {a.anio_ingreso || "-"}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          {renderStatusBadge(a.estado_inscripcion)}
-                        </td>
-                        <td className="px-4 py-3 text-[#6B6166] whitespace-nowrap font-mono text-[11px]">
-                          {a.ultimo_examen || "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
-                          {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
-                            ? a.promedio_con_aplazos.toFixed(2)
-                            : "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
-                          {a.promedio_sin_aplazos !== null && a.promedio_sin_aplazos !== undefined
-                            ? a.promedio_sin_aplazos.toFixed(2)
-                            : "-"}
-                        </td>
-                        <td className="px-3 py-3 text-center font-mono text-[#6B6166] whitespace-nowrap">
-                          <span className="font-semibold text-[#4F3A44]">
-                            {a.actividades_aprobadas}
-                          </span>
-                          {" / "}
-                          <span>{a.total_actividades}</span>
-                        </td>
-                      </tr>
-                    ))
+                    alumnos.map((a) => {
+                      const cond = getStudentCondition(a);
+                      return (
+                        <tr
+                          key={a.id}
+                          onClick={() => setSelectedAlumno(a)}
+                          className="cursor-pointer transition-colors hover:bg-[#FAF8F7]"
+                        >
+                          <td className="px-3 py-3 text-center whitespace-nowrap">
+                            <div className="inline-flex items-center space-x-1.5 justify-center">
+                              {cond === "recibido" ? (
+                                <>
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"
+                                    title="Recibido / Egresado"
+                                  />
+                                  <span className="font-semibold text-blue-700 text-[11px]" title="Recibido / Egresado">
+                                    Recibido
+                                  </span>
+                                </>
+                              ) : cond === "activo" ? (
+                                <>
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"
+                                    title="Activo (examen en últimos 12 meses)"
+                                  />
+                                  <span className="font-semibold text-emerald-700 text-[11px]" title="Activo (examen en últimos 12 meses)">
+                                    Activo
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full bg-gray-300 ring-2 ring-gray-100 shrink-0"
+                                    title="Inactivo (sin examen en los últimos 12 meses)"
+                                  />
+                                  <span className="font-medium text-gray-500 text-[11px]" title="Inactivo (sin examen en los últimos 12 meses)">
+                                    Inactivo
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-[#1F1A1C] whitespace-nowrap">
+                            {a.apellido_nombre}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[#1F1A1C] whitespace-nowrap">
+                            {a.documento}
+                          </td>
+                          <td className="px-3 py-3 text-center text-[#1F1A1C] font-semibold whitespace-nowrap">
+                            {calculateAge(a.fecha_nacimiento)}
+                          </td>
+                          <td className="px-3 py-3 font-mono text-[#6B6166] whitespace-nowrap">
+                            {a.legajo || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-[#6B6166] whitespace-nowrap">
+                            {a.plan || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
+                            {a.anio_ingreso || "-"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {renderStatusBadge(a.estado_inscripcion)}
+                          </td>
+                          <td className="px-4 py-3 text-[#6B6166] whitespace-nowrap font-mono text-[11px]">
+                            {a.ultimo_examen || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
+                            {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
+                              ? a.promedio_con_aplazos.toFixed(2)
+                              : "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
+                            {a.promedio_sin_aplazos !== null && a.promedio_sin_aplazos !== undefined
+                              ? a.promedio_sin_aplazos.toFixed(2)
+                              : "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-[#6B6166] whitespace-nowrap">
+                            <span className="font-semibold text-[#4F3A44]">
+                              {a.actividades_aprobadas}
+                            </span>
+                            {" / "}
+                            <span>{a.total_actividades}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -878,9 +936,30 @@ export default function AlumnosPage() {
               {/* Modal Header */}
               <div className="bg-[#FAF8F7] px-6 py-4 border-b border-[#E6E0DD] flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-[#1F1A1C]">
-                    {selectedAlumno.apellido_nombre}
-                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-lg font-bold text-[#1F1A1C]">
+                      {selectedAlumno.apellido_nombre}
+                    </h3>
+                    {(() => {
+                      const cond = getStudentCondition(selectedAlumno);
+                      return cond === "recibido" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1" />
+                          Recibido
+                        </span>
+                      ) : cond === "activo" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
+                          Activo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1" />
+                          Inactivo
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <p className="text-xs text-[#6B6166] mt-0.5">
                     {selectedAlumno.documento} • Legajo: {selectedAlumno.legajo || "S/D"} • Edad: {calculateAge(selectedAlumno.fecha_nacimiento)} años
                   </p>
