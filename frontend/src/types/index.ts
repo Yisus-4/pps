@@ -82,6 +82,8 @@ export interface AlumnosPaginatedResponse {
   page: number;
   limit: number;
   total_pages: number;
+  activos?: number;
+  promedio_historico?: number | null;
 }
 
 export interface UploadResponse {

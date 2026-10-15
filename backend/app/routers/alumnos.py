@@ -1,8 +1,9 @@
 import math
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.propuesta import PropuestaFormativa
@@ -11,6 +12,41 @@ from app.schemas.alumno import AlumnosPaginated, AlumnoOut
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/alumnos", tags=["Alumnos"])
+
+
+def parse_date_robust(val: Optional[str]) -> Optional[datetime]:
+    if not val or not isinstance(val, str):
+        return None
+    s = val.strip()
+    if not s or s.lower() in ("none", "nan", "-", "s/d"):
+        return None
+    token = s.split()[0].split("T")[0]
+    formats = [
+        "%d/%m/%Y",
+        "%Y-%m-%d",
+        "%d-%m-%Y",
+        "%Y/%m/%d",
+        "%d/%m/%y",
+        "%y-%m-%d",
+    ]
+    for fmt in formats:
+        try:
+            return datetime.strptime(token, fmt)
+        except ValueError:
+            pass
+    for sep in ["/", "-"]:
+        if sep in token:
+            parts = token.split(sep)
+            if len(parts) == 3:
+                try:
+                    p0, p1, p2 = int(parts[0]), int(parts[1]), int(parts[2])
+                    if p0 > 1000:
+                        return datetime(p0, p1, p2)
+                    elif p2 > 1000:
+                        return datetime(p2, p1, p0)
+                except Exception:
+                    pass
+    return None
 
 
 @router.get("", response_model=AlumnosPaginated)
@@ -32,7 +68,7 @@ def get_alumnos(
     if current_user.role != UserRole.ADMIN.value:
         if current_user.escuela_id is None:
             # User has no assigned escuela, return empty
-            return AlumnosPaginated(items=[], total=0, page=page, limit=limit, total_pages=0)
+            return AlumnosPaginated(items=[], total=0, page=page, limit=limit, total_pages=0, activos=0, promedio_historico=None)
         query = query.filter(PropuestaFormativa.escuela_id == current_user.escuela_id)
     else:
         # Admin can optionally filter by escuela_id
@@ -60,6 +96,40 @@ def get_alumnos(
 
     # Count total matching
     total = query.count()
+
+    # Calculate activos matching the active query (before pagination offset/limit)
+    # whose ultimo_examen is within the last 12 months (365 days from current date datetime.now())
+    now = datetime.now()
+    cutoff_date = (now - timedelta(days=365)).date()
+    today_limit = (now + timedelta(days=1)).date()
+
+    activos = 0
+    exam_rows = query.with_entities(Alumno.ultimo_examen).filter(
+        Alumno.ultimo_examen.isnot(None),
+        Alumno.ultimo_examen != ""
+    ).all()
+
+    for (exam_str,) in exam_rows:
+        dt = parse_date_robust(exam_str)
+        if dt and cutoff_date <= dt.date() <= today_limit:
+            activos += 1
+
+    # Calculate promedio_historico
+    # When propuesta_id is specified:
+    #   Compute the average of promedio_con_aplazos for all egresados of that propuesta_id in the database:
+    #   Alumno.propuesta_id == propuesta_id, Alumno.total_actividades > 0, Alumno.actividades_aprobadas >= Alumno.total_actividades, and Alumno.promedio_con_aplazos > 0. Round to 2 decimal places.
+    # When propuesta_id is None:
+    #   Set promedio_historico = None
+    promedio_historico: Optional[float] = None
+    if propuesta_id is not None:
+        avg_prom = db.query(func.avg(Alumno.promedio_con_aplazos)).filter(
+            Alumno.propuesta_id == propuesta_id,
+            Alumno.total_actividades > 0,
+            Alumno.actividades_aprobadas >= Alumno.total_actividades,
+            Alumno.promedio_con_aplazos > 0
+        ).scalar()
+        if avg_prom is not None:
+            promedio_historico = round(float(avg_prom), 2)
 
     # Pagination
     total_pages = math.ceil(total / limit) if total > 0 else 0
@@ -120,5 +190,7 @@ def get_alumnos(
         total=total,
         page=page,
         limit=limit,
-        total_pages=total_pages
+        total_pages=total_pages,
+        activos=activos,
+        promedio_historico=promedio_historico
     )

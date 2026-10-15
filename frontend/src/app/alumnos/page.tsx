@@ -62,6 +62,8 @@ export default function AlumnosPage() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [activos, setActivos] = useState<number>(0);
+  const [promedioHistorico, setPromedioHistorico] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAlumno, setSelectedAlumno] = useState<Alumno | null>(null);
@@ -175,6 +177,8 @@ export default function AlumnosPage() {
       setAlumnos(res.items);
       setTotal(res.total);
       setTotalPages(res.total_pages);
+      setActivos(res.activos ?? 0);
+      setPromedioHistorico(res.promedio_historico ?? null);
       setError(null);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -204,6 +208,8 @@ export default function AlumnosPage() {
           setAlumnos(res.items);
           setTotal(res.total);
           setTotalPages(res.total_pages);
+          setActivos(res.activos ?? 0);
+          setPromedioHistorico(res.promedio_historico ?? null);
           setError(null);
         }
       } catch (err: unknown) {
@@ -275,18 +281,6 @@ export default function AlumnosPage() {
     return phoneStr.trim();
   };
 
-  // Métricas
-  const aspirantesCount = alumnos.filter((a) =>
-    a.estado_inscripcion?.toUpperCase().includes("ASPIRANTE")
-  ).length;
-
-  // Promedio histórico: suma de promedios de los alumnos egresados (actividades_aprobadas >= total_actividades)
-  const egresadosConNotas = alumnos.filter(
-    (a) => a.total_actividades > 0 && a.actividades_aprobadas >= a.total_actividades && (a.promedio_con_aplazos || 0) > 0
-  );
-  const promedioHistorico = egresadosConNotas.length > 0
-    ? (egresadosConNotas.reduce((sum, e) => sum + (e.promedio_con_aplazos || 0), 0) / egresadosConNotas.length).toFixed(2)
-    : "8.01";
 
   // Functional status badge helper
   const renderStatusBadge = (estado?: string | null, compact = false) => {
@@ -426,31 +420,37 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* KPI Cards (Métricas: Total, Aspirantes y Promedio Histórico de Egresados) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* KPI Cards (Métricas: Alumnos, Activos y opcionalmente Promedio Histórico de Egresados) */}
+        <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-4`}>
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-              Total en Vista
+              Alumnos
             </p>
             <p className="text-2xl font-black text-[#1F1A1C] mt-1">{total}</p>
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-[#E5B115]" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#3F6B4F]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-              Aspirantes
+              Activos
             </p>
-            <p className="text-2xl font-black text-[#A07A0B] mt-1">{aspirantesCount}</p>
+            <p className="text-2xl font-black text-[#3F6B4F] mt-1">{activos}</p>
           </div>
 
-          <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
-            <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-              Promedio Histórico (Egresados)
-            </p>
-            <p className="text-2xl font-black text-[#4F3A44] mt-1">{promedioHistorico}</p>
-          </div>
+          {selectedPropuestaId !== null && (
+            <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
+              <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+                Promedio Histórico (Egresados)
+              </p>
+              <p className="text-2xl font-black text-[#4F3A44] mt-1">
+                {promedioHistorico !== null && promedioHistorico !== undefined
+                  ? promedioHistorico.toFixed(2)
+                  : "-"}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Filter Controls Bar */}
@@ -550,7 +550,6 @@ export default function AlumnosPage() {
                     {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
                     {renderSortableHeader("ultimo_examen", "Último Examen", "px-3 py-3.5")}
-                    {renderSortableHeader("ultima_reinscripcion", "Última Reinsc.", "px-3 py-3.5")}
                     {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
                     {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
                   </tr>
@@ -558,7 +557,7 @@ export default function AlumnosPage() {
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={9} className="px-6 py-14 text-center text-[#6B6166]">
+                      <td colSpan={8} className="px-6 py-14 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -569,7 +568,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-6 py-16 text-center">
+                      <td colSpan={8} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -612,9 +611,6 @@ export default function AlumnosPage() {
                         </td>
                         <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] whitespace-nowrap">
                           {a.ultimo_examen || "-"}
-                        </td>
-                        <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] whitespace-nowrap">
-                          {a.ultima_reinscripcion || "-"}
                         </td>
                         <td className="px-3 py-3 text-center font-mono font-bold text-[#826170] whitespace-nowrap">
                           {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
@@ -735,7 +731,6 @@ export default function AlumnosPage() {
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
                     {renderSortableHeader("estado_inscripcion", "Estado", "px-3 py-3.5")}
                     {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
-                    {renderSortableHeader("ultima_reinscripcion", "Última Reinsc.", "px-4 py-3.5")}
                     {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
                     {renderSortableHeader("promedio_sin_aplazos", "Prom. s/ Apl.", "px-3 py-3.5", "center")}
                     {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
@@ -744,7 +739,7 @@ export default function AlumnosPage() {
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={12} className="px-6 py-12 text-center text-[#6B6166]">
+                      <td colSpan={11} className="px-6 py-12 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -755,7 +750,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="px-6 py-16 text-center">
+                      <td colSpan={11} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -799,9 +794,6 @@ export default function AlumnosPage() {
                         </td>
                         <td className="px-4 py-3 text-[#6B6166] whitespace-nowrap font-mono text-[11px]">
                           {a.ultimo_examen || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-[#6B6166] whitespace-nowrap font-mono text-[11px]">
-                          {a.ultima_reinscripcion || "-"}
                         </td>
                         <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
                           {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined

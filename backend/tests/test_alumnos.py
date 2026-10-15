@@ -1,6 +1,9 @@
+from datetime import datetime, timedelta
 from pathlib import Path
 import pytest
 from app.models.escuela import Escuela
+from app.models.alumno import Alumno
+from app.models.propuesta import PropuestaFormativa
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -29,6 +32,9 @@ def test_query_alumnos_pagination(client, admin_headers):
     assert data["limit"] == 20
     assert data["total_pages"] == 14
     assert len(data["items"]) == 20
+    # propuesta_id is None -> promedio_historico is None, activos is computed for all 275
+    assert data["activos"] == 60
+    assert data["promedio_historico"] is None
 
 
 def test_search_alumnos_by_name_and_documento(client, admin_headers):
@@ -75,3 +81,81 @@ def test_escuelas_and_propuestas_listing(client, admin_headers, db_session):
     prop = propuestas[0]
     assert "Mecatrónica" in prop["nombre"] or "Mecatr" in prop["nombre"]
     assert prop["alumnos_count"] == 275
+
+
+def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_session):
+    esc_ing = db_session.query(Escuela).filter(Escuela.nombre == "Escuela de Ingeniería").first()
+    res_prop = client.get(f"/api/escuelas/{esc_ing.id}/propuestas", headers=admin_headers)
+    assert res_prop.status_code == 200
+    prop_id = res_prop.json()[0]["id"]
+
+    # When propuesta_id is specified:
+    res = client.get(f"/api/alumnos?propuesta_id={prop_id}", headers=admin_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] == 275
+    assert data["activos"] == 60
+    assert data["promedio_historico"] == 8.01
+
+    # Verify that sorting by any field does NOT change total, activos, or promedio_historico
+    sort_fields = [
+        "apellido_nombre",
+        "documento",
+        "legajo",
+        "plan",
+        "anio_ingreso",
+        "promedio_con_aplazos",
+        "promedio_sin_aplazos",
+        "actividades_aprobadas",
+        "ultimo_examen",
+        "fecha_nacimiento",
+    ]
+    for field in sort_fields:
+        for sort_dir in ["asc", "desc"]:
+            res_sort = client.get(
+                f"/api/alumnos?propuesta_id={prop_id}&sort_by={field}&sort_dir={sort_dir}&page=1&limit=10",
+                headers=admin_headers
+            )
+            assert res_sort.status_code == 200
+            s_data = res_sort.json()
+            assert s_data["total"] == 275, f"Total changed on sorting by {field} {sort_dir}"
+            assert s_data["activos"] == 60, f"Activos changed on sorting by {field} {sort_dir}"
+            assert s_data["promedio_historico"] == 8.01, f"Promedio historico changed on sorting by {field} {sort_dir}"
+            assert len(s_data["items"]) == 10
+
+
+def test_activos_date_formats_dd_mm_yyyy_and_yyyy_mm_dd(client, admin_headers, db_session):
+    # Select two students to test both date formats
+    students = db_session.query(Alumno).limit(2).all()
+    now = datetime.now()
+
+    # 1. Test YYYY-MM-DD within 12 months (e.g. 30 days ago)
+    date_iso = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    students[0].ultimo_examen = date_iso
+
+    # 2. Test DD/MM/YYYY within 12 months (e.g. 60 days ago)
+    date_slash = (now - timedelta(days=60)).strftime("%d/%m/%Y")
+    students[1].ultimo_examen = date_slash
+
+    db_session.commit()
+
+    # Query with search for student 0
+    res0 = client.get(f"/api/alumnos?search={students[0].documento}", headers=admin_headers)
+    assert res0.status_code == 200
+    assert res0.json()["total"] == 1
+    assert res0.json()["activos"] == 1
+
+    # Query with search for student 1
+    res1 = client.get(f"/api/alumnos?search={students[1].documento}", headers=admin_headers)
+    assert res1.status_code == 200
+    assert res1.json()["total"] == 1
+    assert res1.json()["activos"] == 1
+
+    # Test an expired date (> 365 days ago)
+    expired_date = (now - timedelta(days=400)).strftime("%Y-%m-%d")
+    students[0].ultimo_examen = expired_date
+    db_session.commit()
+    res_exp = client.get(f"/api/alumnos?search={students[0].documento}", headers=admin_headers)
+    assert res_exp.status_code == 200
+    assert res_exp.json()["total"] == 1
+    assert res_exp.json()["activos"] == 0
