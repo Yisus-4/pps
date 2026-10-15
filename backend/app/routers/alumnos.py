@@ -76,6 +76,8 @@ def get_alumnos(
         "promedio_sin_aplazos": Alumno.promedio_sin_aplazos,
         "actividades_aprobadas": Alumno.actividades_aprobadas,
         "ultimo_examen": Alumno.ultimo_examen,
+        "ultima_reinscripcion": Alumno.ultima_reinscripcion,
+        "fecha_nacimiento": Alumno.fecha_nacimiento,
     }
     sort_col = sort_fields.get(sort_by, Alumno.apellido_nombre)
     if sort_dir and sort_dir.lower() == "desc":

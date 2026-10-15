@@ -54,16 +54,11 @@ export function Navbar() {
         <div className="flex justify-between h-16 items-center">
           {/* Logo and Brand */}
           <div className="flex items-center space-x-3">
-            <Link href="/alumnos" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 rounded-lg bg-[#826170] text-white flex items-center justify-center font-bold text-lg shadow-sm group-hover:bg-[#4F3A44] transition-colors">
-                U
-              </div>
+            <Link href="/alumnos" className="flex items-center space-x-2 group">
               <div>
-                <div className="flex items-center space-x-1.5">
-                  <span className="font-extrabold text-xl tracking-tight text-[#4F3A44]">
-                    UNdeC
-                  </span>
-                </div>
+                <span className="font-extrabold text-2xl tracking-tight text-[#4F3A44] group-hover:text-[#826170] transition-colors">
+                  UNdeC
+                </span>
                 <p className="text-[11px] text-[#6B6166] leading-none hidden sm:block">
                   Universidad Nacional de Chilecito
                 </p>

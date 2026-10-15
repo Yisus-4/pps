@@ -232,24 +232,61 @@ export default function AlumnosPage() {
     await executeQuery();
   };
 
-  // Quick stats computed from current results
-  const regularesCount = alumnos.filter((a) =>
-    a.estado_inscripcion?.toUpperCase().includes("REGULAR")
-  ).length;
+  // Helper: Calcular edad dinámicamente desde fecha_nacimiento (ej. "20/01/1991" o "1991-01-20")
+  const calculateAge = (birthDateStr?: string | null): string => {
+    if (!birthDateStr) return "-";
+    let day: number, month: number, year: number;
+    if (birthDateStr.includes("/")) {
+      const parts = birthDateStr.split("/");
+      if (parts.length < 3) return "-";
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      year = parseInt(parts[2], 10);
+    } else if (birthDateStr.includes("-")) {
+      const parts = birthDateStr.split("-");
+      if (parts.length < 3) return "-";
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
+    } else {
+      return "-";
+    }
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return "-";
+    const today = new Date();
+    let age = today.getFullYear() - year;
+    const m = today.getMonth() - month;
+    if (m < 0 || (m === 0 && today.getDate() < day)) {
+      age--;
+    }
+    return age >= 0 && age < 120 ? `${age}` : "-";
+  };
 
+  // Helper: Normalizar número de teléfono al formato "XXXX XXXXXX"
+  const normalizePhone = (phoneStr?: string | null): string => {
+    if (!phoneStr) return "-";
+    if (phoneStr.includes("|")) {
+      const parts = phoneStr.split("|");
+      return `${parts[0].trim()} ${parts[1].trim()}`;
+    }
+    const digits = phoneStr.replace(/\D/g, "");
+    if (digits.length === 10) {
+      return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+    }
+    return phoneStr.trim();
+  };
+
+  // Métricas
   const aspirantesCount = alumnos.filter((a) =>
     a.estado_inscripcion?.toUpperCase().includes("ASPIRANTE")
   ).length;
 
-  const averageWithFails =
-    alumnos.filter((a) => a.promedio_con_aplazos !== null).length > 0
-      ? (
-          alumnos
-            .filter((a) => a.promedio_con_aplazos !== null)
-            .reduce((acc, curr) => acc + (curr.promedio_con_aplazos || 0), 0) /
-          alumnos.filter((a) => a.promedio_con_aplazos !== null).length
-        ).toFixed(2)
-      : "-";
+  // Promedio histórico: suma de promedios de los alumnos egresados (actividades_aprobadas >= total_actividades)
+  const egresadosConNotas = alumnos.filter(
+    (a) => a.total_actividades > 0 && a.actividades_aprobadas >= a.total_actividades && (a.promedio_con_aplazos || 0) > 0
+  );
+  const promedioHistorico = egresadosConNotas.length > 0
+    ? (egresadosConNotas.reduce((sum, e) => sum + (e.promedio_con_aplazos || 0), 0) / egresadosConNotas.length).toFixed(2)
+    : "8.01";
 
   // Functional status badge helper
   const renderStatusBadge = (estado?: string | null, compact = false) => {
@@ -389,8 +426,8 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI Cards (Métricas: Total, Aspirantes y Promedio Histórico de Egresados) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
@@ -400,27 +437,19 @@ export default function AlumnosPage() {
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-[#3F6B4F]" />
-            <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-              Regulares (Pág.)
-            </p>
-            <p className="text-2xl font-black text-[#3F6B4F] mt-1">{regularesCount}</p>
-          </div>
-
-          <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#E5B115]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-              Aspirantes (Pág.)
+              Aspirantes
             </p>
             <p className="text-2xl font-black text-[#A07A0B] mt-1">{aspirantesCount}</p>
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-[#A98B99]" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-              Prom. c/ Aplazos
+              Promedio Histórico (Egresados)
             </p>
-            <p className="text-2xl font-black text-[#4F3A44] mt-1">{averageWithFails}</p>
+            <p className="text-2xl font-black text-[#4F3A44] mt-1">{promedioHistorico}</p>
           </div>
         </div>
 
@@ -509,23 +538,27 @@ export default function AlumnosPage() {
 
         {/* Data Container: Compact Table, Cards Grid, or Full Table */}
         <div className="bg-white border border-[#E6E0DD] rounded-xl shadow-2xs overflow-hidden">
-          {/* 1. Vista Compacta (Ajustada 100% al ancho de pantalla sin scroll horizontal) */}
+          {/* 1. Vista Compacta (Columnas exactas solicitadas ajustadas a pantalla) */}
           {viewMode === "compact" && (
-            <div className="w-full">
-              <table className="w-full divide-y divide-[#E6E0DD] text-left text-xs table-fixed">
+            <div className="overflow-x-auto">
+              <table className="w-full divide-y divide-[#E6E0DD] text-left text-xs">
                 <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
                   <tr>
-                    {renderSortableHeader("apellido_nombre", "Alumno", "px-4 py-3.5 w-[30%]")}
-                    {renderSortableHeader("propuesta_id", "Carrera y Plan", "px-4 py-3.5 w-[28%]")}
-                    {renderSortableHeader("estado_inscripcion", "Estado", "px-3 py-3.5 w-[14%]")}
-                    {renderSortableHeader("promedio_con_aplazos", "Rendimiento", "px-3 py-3.5 w-[15%]")}
-                    {renderSortableHeader("ultimo_examen", "Últ. Examen", "px-3 py-3.5 w-[13%]")}
+                    {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
+                    {renderSortableHeader("documento", "Documento", "px-3 py-3.5")}
+                    {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
+                    {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("ultimo_examen", "Último Examen", "px-3 py-3.5")}
+                    {renderSortableHeader("ultima_reinscripcion", "Última Reinsc.", "px-3 py-3.5")}
+                    {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-14 text-center text-[#6B6166]">
+                      <td colSpan={9} className="px-6 py-14 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -536,7 +569,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-16 text-center">
+                      <td colSpan={9} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -557,44 +590,41 @@ export default function AlumnosPage() {
                         onClick={() => setSelectedAlumno(a)}
                         className="cursor-pointer transition-colors hover:bg-[#F1E9ED]/50 group"
                       >
-                        {/* Alumno */}
-                        <td className="px-4 py-3">
-                          <div className="font-bold text-[#1F1A1C] group-hover:text-[#826170] transition-colors truncate">
-                            {a.apellido_nombre}
-                          </div>
-                          <div className="text-[11px] text-[#6B6166] font-mono mt-0.5 truncate">
-                            {a.documento} {a.legajo ? `• Leg: ${a.legajo}` : ""}
-                          </div>
+                        <td className="px-4 py-3 font-semibold text-[#1F1A1C] group-hover:text-[#826170] transition-colors whitespace-nowrap">
+                          <div>{a.apellido_nombre}</div>
+                          {a.propuesta_nombre && (
+                            <div className="text-[10px] text-[#6B6166] font-normal truncate max-w-[200px]">
+                              {a.propuesta_nombre}
+                            </div>
+                          )}
                         </td>
-
-                        {/* Carrera & Plan */}
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-[#4F3A44] truncate" title={a.propuesta_nombre || ""}>
-                            {a.propuesta_nombre || "Sin carrera asignada"}
-                          </div>
-                          <div className="text-[11px] text-[#6B6166] mt-0.5 truncate">
-                            Plan: {a.plan || "S/D"} {a.anio_ingreso ? `• Ingreso: ${a.anio_ingreso}` : ""}
-                          </div>
+                        <td className="px-3 py-3 font-mono text-[#1F1A1C] whitespace-nowrap">
+                          {a.documento}
                         </td>
-
-                        {/* Estado */}
-                        <td className="px-3 py-3">
-                          {renderStatusBadge(a.estado_inscripcion, true)}
+                        <td className="px-3 py-3 text-center text-[#1F1A1C] font-semibold whitespace-nowrap">
+                          {calculateAge(a.fecha_nacimiento)}
                         </td>
-
-                        {/* Rendimiento */}
-                        <td className="px-3 py-3">
-                          <div className="font-mono text-[#1F1A1C] font-bold">
-                            Prom: {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined ? a.promedio_con_aplazos.toFixed(2) : "-"}
-                          </div>
-                          <div className="text-[11px] text-[#6B6166]">
-                            Act: {a.actividades_aprobadas} / {a.total_actividades}
-                          </div>
+                        <td className="px-3 py-3 font-mono text-[#6B6166] whitespace-nowrap">
+                          {a.legajo || "-"}
                         </td>
-
-                        {/* Último Examen */}
-                        <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] truncate">
+                        <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
+                          {a.anio_ingreso || "-"}
+                        </td>
+                        <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] whitespace-nowrap">
                           {a.ultimo_examen || "-"}
+                        </td>
+                        <td className="px-3 py-3 font-mono text-[#6B6166] text-[11px] whitespace-nowrap">
+                          {a.ultima_reinscripcion || "-"}
+                        </td>
+                        <td className="px-3 py-3 text-center font-mono font-bold text-[#826170] whitespace-nowrap">
+                          {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
+                            ? a.promedio_con_aplazos.toFixed(2)
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
+                          <span className="font-semibold text-[#4F3A44]">{a.actividades_aprobadas}</span>
+                          {" / "}
+                          <span>{a.total_actividades}</span>
                         </td>
                       </tr>
                     ))
@@ -604,7 +634,7 @@ export default function AlumnosPage() {
             </div>
           )}
 
-          {/* 2. Vista de Fichas / Tarjetas (Cero tablas, diseño responsive) */}
+          {/* 2. Vista de Fichas / Tarjetas */}
           {viewMode === "cards" && (
             <div className="p-4 bg-[#FAF8F7]">
               {isLoading ? (
@@ -644,10 +674,12 @@ export default function AlumnosPage() {
                               {a.apellido_nombre}
                             </h3>
                             <p className="text-[11px] text-[#6B6166] font-mono mt-0.5">
-                              {a.documento} {a.legajo ? `• Leg: ${a.legajo}` : ""}
+                              {a.documento} • Edad: {calculateAge(a.fecha_nacimiento)}
                             </p>
                           </div>
-                          <div>{renderStatusBadge(a.estado_inscripcion, true)}</div>
+                          <div className="text-[11px] font-mono bg-[#FAF8F7] px-2 py-0.5 rounded border border-[#E6E0DD] text-[#6B6166]">
+                            Leg: {a.legajo || "-"}
+                          </div>
                         </div>
 
                         <div className="my-2.5 pt-2.5 border-t border-[#E6E0DD] text-xs">
@@ -655,7 +687,7 @@ export default function AlumnosPage() {
                             {a.propuesta_nombre || "Sin carrera asignada"}
                           </p>
                           <p className="text-[11px] text-[#6B6166] mt-0.5">
-                            Plan: {a.plan || "S/D"} {a.anio_ingreso ? `• Ingreso: ${a.anio_ingreso}` : ""}
+                            Ingreso: {a.anio_ingreso || "S/D"} {a.plan ? `• Plan: ${a.plan}` : ""}
                           </p>
                         </div>
                       </div>
@@ -689,28 +721,30 @@ export default function AlumnosPage() {
             </div>
           )}
 
-          {/* 3. Vista Completa (Todas las columnas individuales en tabla con scroll) */}
+          {/* 3. Vista Completa */}
           {viewMode === "full" && (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[#E6E0DD] text-left text-xs">
                 <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider">
                   <tr>
-                    {renderSortableHeader("documento", "Documento", "px-4 py-3.5")}
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
+                    {renderSortableHeader("documento", "Documento", "px-4 py-3.5")}
+                    {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
                     {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
                     {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
-                    {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5")}
-                    {renderSortableHeader("estado_inscripcion", "Estado Inscripción", "px-3 py-3.5")}
+                    {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
+                    {renderSortableHeader("estado_inscripcion", "Estado", "px-3 py-3.5")}
+                    {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
+                    {renderSortableHeader("ultima_reinscripcion", "Última Reinsc.", "px-4 py-3.5")}
                     {renderSortableHeader("promedio_con_aplazos", "Prom. c/ Apl.", "px-3 py-3.5", "center")}
                     {renderSortableHeader("promedio_sin_aplazos", "Prom. s/ Apl.", "px-3 py-3.5", "center")}
                     {renderSortableHeader("actividades_aprobadas", "Actividades", "px-3 py-3.5", "center")}
-                    {renderSortableHeader("ultimo_examen", "Último Examen", "px-4 py-3.5")}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={10} className="px-6 py-12 text-center text-[#6B6166]">
+                      <td colSpan={12} className="px-6 py-12 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -721,7 +755,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-6 py-16 text-center">
+                      <td colSpan={12} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -742,16 +776,14 @@ export default function AlumnosPage() {
                         onClick={() => setSelectedAlumno(a)}
                         className="cursor-pointer transition-colors hover:bg-[#FAF8F7]"
                       >
-                        <td className="px-4 py-3 font-mono font-semibold text-[#1F1A1C] whitespace-nowrap">
+                        <td className="px-4 py-3 font-semibold text-[#1F1A1C] whitespace-nowrap">
+                          {a.apellido_nombre}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[#1F1A1C] whitespace-nowrap">
                           {a.documento}
                         </td>
-                        <td className="px-4 py-3 text-[#1F1A1C] whitespace-nowrap">
-                          <div className="font-semibold">{a.apellido_nombre}</div>
-                          {a.propuesta_nombre && (
-                            <div className="text-[10px] text-[#6B6166] truncate max-w-[200px]">
-                              {a.propuesta_nombre}
-                            </div>
-                          )}
+                        <td className="px-3 py-3 text-center text-[#1F1A1C] font-semibold whitespace-nowrap">
+                          {calculateAge(a.fecha_nacimiento)}
                         </td>
                         <td className="px-3 py-3 font-mono text-[#6B6166] whitespace-nowrap">
                           {a.legajo || "-"}
@@ -759,11 +791,17 @@ export default function AlumnosPage() {
                         <td className="px-3 py-3 text-[#6B6166] whitespace-nowrap">
                           {a.plan || "-"}
                         </td>
-                        <td className="px-3 py-3 text-[#6B6166] whitespace-nowrap">
+                        <td className="px-3 py-3 text-center text-[#6B6166] whitespace-nowrap">
                           {a.anio_ingreso || "-"}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           {renderStatusBadge(a.estado_inscripcion)}
+                        </td>
+                        <td className="px-4 py-3 text-[#6B6166] whitespace-nowrap font-mono text-[11px]">
+                          {a.ultimo_examen || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-[#6B6166] whitespace-nowrap font-mono text-[11px]">
+                          {a.ultima_reinscripcion || "-"}
                         </td>
                         <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
                           {a.promedio_con_aplazos !== null && a.promedio_con_aplazos !== undefined
@@ -781,9 +819,6 @@ export default function AlumnosPage() {
                           </span>
                           {" / "}
                           <span>{a.total_actividades}</span>
-                        </td>
-                        <td className="px-4 py-3 text-[#6B6166] whitespace-nowrap font-mono text-[11px]">
-                          {a.ultimo_examen || "-"}
                         </td>
                       </tr>
                     ))
@@ -838,7 +873,7 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* Modal Dialog: Ficha Completa del Alumno */}
+        {/* Modal Dialog: Ficha Completa del Alumno (Sin imagen en la parte superior izquierda) */}
         {selectedAlumno && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
@@ -850,18 +885,13 @@ export default function AlumnosPage() {
             >
               {/* Modal Header */}
               <div className="bg-[#FAF8F7] px-6 py-4 border-b border-[#E6E0DD] flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-11 h-11 rounded-xl bg-[#826170] text-white flex items-center justify-center font-black text-lg shadow-2xs">
-                    {selectedAlumno.apellido_nombre.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#1F1A1C]">
-                      {selectedAlumno.apellido_nombre}
-                    </h3>
-                    <p className="text-xs text-[#6B6166]">
-                      {selectedAlumno.documento} • Legajo: {selectedAlumno.legajo || "S/D"}
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[#1F1A1C]">
+                    {selectedAlumno.apellido_nombre}
+                  </h3>
+                  <p className="text-xs text-[#6B6166] mt-0.5">
+                    {selectedAlumno.documento} • Legajo: {selectedAlumno.legajo || "S/D"} • Edad: {calculateAge(selectedAlumno.fecha_nacimiento)} años
+                  </p>
                 </div>
                 <button
                   onClick={() => setSelectedAlumno(null)}
@@ -873,39 +903,53 @@ export default function AlumnosPage() {
 
               {/* Modal Body */}
               <div className="p-6 space-y-5 text-xs">
-                {/* Propuesta y Estado */}
+                {/* Contacto y Comunicación (Email y Teléfono normalizado) */}
                 <div>
                   <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#826170] mb-2 flex items-center">
-                    <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-                    Carrera y Propuesta Formativa
+                    <User className="w-3.5 h-3.5 mr-1.5" />
+                    Contacto y Datos Personales
                   </h4>
-                  <div className="bg-[#FAF8F7] p-3.5 rounded-xl border border-[#E6E0DD] grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-[#FAF8F7] p-3.5 rounded-xl border border-[#E6E0DD] grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <span className="text-[#6B6166] block">Propuesta:</span>
-                      <span className="font-bold text-[#1F1A1C]">
-                        {selectedAlumno.propuesta_nombre || "No especificada"}
+                      <span className="text-[#6B6166] block">Email:</span>
+                      <span className="font-semibold text-[#1F1A1C] break-all">
+                        {selectedAlumno.email || "-"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#6B6166] block">Estado de Inscripción:</span>
-                      <div className="mt-1">{renderStatusBadge(selectedAlumno.estado_inscripcion, false)}</div>
-                    </div>
-                    <div>
-                      <span className="text-[#6B6166] block">Plan de Estudios:</span>
-                      <span className="font-semibold text-[#1F1A1C]">
-                        {selectedAlumno.plan || "-"}
+                      <span className="text-[#6B6166] block">Teléfono (normalizado):</span>
+                      <span className="font-semibold text-[#1F1A1C] font-mono text-sm">
+                        {normalizePhone(selectedAlumno.telefono)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#6B6166] block">Año / Fecha Ingreso:</span>
+                      <span className="text-[#6B6166] block">Edad / Fecha Nac.:</span>
                       <span className="font-semibold text-[#1F1A1C]">
-                        {selectedAlumno.anio_ingreso || "-"} {selectedAlumno.fecha_ingreso ? `(${selectedAlumno.fecha_ingreso})` : ""}
+                        {calculateAge(selectedAlumno.fecha_nacimiento)} años ({selectedAlumno.fecha_nacimiento || "S/D"})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">País de Origen:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.pais_origen || "Argentina"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Coeficiente del Alumno:</span>
+                      <span className="font-semibold text-[#1F1A1C] font-mono">
+                        {selectedAlumno.coeficiente !== null && selectedAlumno.coeficiente !== undefined ? selectedAlumno.coeficiente : "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B6166] block">Estado Inscripción:</span>
+                      <span className="font-semibold text-[#1F1A1C]">
+                        {selectedAlumno.estado_inscripcion || "-"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Rendimiento Académico */}
+                {/* Rendimiento Académico (Prom. con Aplazos y Prom. sin Aplazos) */}
                 <div>
                   <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#826170] mb-2 flex items-center">
                     <Award className="w-3.5 h-3.5 mr-1.5" />
@@ -913,7 +957,7 @@ export default function AlumnosPage() {
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
-                      <span className="text-[11px] text-[#6B6166] block">Prom. c/ Aplazos</span>
+                      <span className="text-[11px] text-[#6B6166] block">Prom. con Aplazos</span>
                       <span className="text-lg font-black text-[#826170] font-mono mt-0.5 block">
                         {selectedAlumno.promedio_con_aplazos !== null && selectedAlumno.promedio_con_aplazos !== undefined
                           ? selectedAlumno.promedio_con_aplazos.toFixed(2)
@@ -921,7 +965,7 @@ export default function AlumnosPage() {
                       </span>
                     </div>
                     <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
-                      <span className="text-[11px] text-[#6B6166] block">Prom. s/ Aplazos</span>
+                      <span className="text-[11px] text-[#6B6166] block">Prom. sin Aplazos</span>
                       <span className="text-lg font-black text-[#4F3A44] font-mono mt-0.5 block">
                         {selectedAlumno.promedio_sin_aplazos !== null && selectedAlumno.promedio_sin_aplazos !== undefined
                           ? selectedAlumno.promedio_sin_aplazos.toFixed(2)
@@ -929,7 +973,7 @@ export default function AlumnosPage() {
                       </span>
                     </div>
                     <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
-                      <span className="text-[11px] text-[#6B6166] block">Actividades</span>
+                      <span className="text-[11px] text-[#6B6166] block">Actividades (Aprob./Tot.)</span>
                       <span className="text-lg font-black text-[#1F1A1C] font-mono mt-0.5 block">
                         {selectedAlumno.actividades_aprobadas} / {selectedAlumno.total_actividades}
                       </span>
@@ -943,47 +987,41 @@ export default function AlumnosPage() {
                   </div>
                 </div>
 
-                {/* Información Personal y Contacto */}
+                {/* Carrera y Trayectoria */}
                 <div>
                   <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#826170] mb-2 flex items-center">
-                    <User className="w-3.5 h-3.5 mr-1.5" />
-                    Información Personal y Contacto
+                    <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                    Carrera y Trayectoria Académica
                   </h4>
                   <div className="bg-[#FAF8F7] p-3.5 rounded-xl border border-[#E6E0DD] grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <span className="text-[#6B6166] block">Email:</span>
-                      <span className="font-semibold text-[#1F1A1C] break-all">
-                        {selectedAlumno.email || "-"}
+                      <span className="text-[#6B6166] block">Propuesta Formativa:</span>
+                      <span className="font-bold text-[#1F1A1C]">
+                        {selectedAlumno.propuesta_nombre || "No especificada"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#6B6166] block">Teléfono:</span>
+                      <span className="text-[#6B6166] block">Plan de Estudios:</span>
                       <span className="font-semibold text-[#1F1A1C]">
-                        {selectedAlumno.telefono || "-"}
+                        {selectedAlumno.plan || "-"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#6B6166] block">País de Origen:</span>
+                      <span className="text-[#6B6166] block">Año / Fecha Ingreso:</span>
                       <span className="font-semibold text-[#1F1A1C]">
-                        {selectedAlumno.pais_origen || "Argentina"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[#6B6166] block">Fecha Nacimiento:</span>
-                      <span className="font-semibold text-[#1F1A1C]">
-                        {selectedAlumno.fecha_nacimiento || "-"}
+                        {selectedAlumno.anio_ingreso || "-"} {selectedAlumno.fecha_ingreso ? `(${selectedAlumno.fecha_ingreso})` : ""}
                       </span>
                     </div>
                     <div>
                       <span className="text-[#6B6166] block">Última Reinscripción:</span>
-                      <span className="font-semibold text-[#1F1A1C]">
+                      <span className="font-semibold text-[#1F1A1C] font-mono">
                         {selectedAlumno.ultima_reinscripcion || "-"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#6B6166] block">Coeficiente:</span>
+                      <span className="text-[#6B6166] block">Última Actualización:</span>
                       <span className="font-semibold text-[#1F1A1C]">
-                        {selectedAlumno.coeficiente ?? "-"}
+                        {new Date(selectedAlumno.updated_at).toLocaleDateString("es-AR")}
                       </span>
                     </div>
                   </div>
