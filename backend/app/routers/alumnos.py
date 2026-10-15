@@ -99,6 +99,17 @@ def get_alumnos(
     now = datetime.now()
     cutoff_date = (now - timedelta(days=365)).date()
     today_limit = (now + timedelta(days=1)).date()
+    current_year = now.year
+
+    def is_alumno_activo(exam_str: Optional[str], anio_ingreso: Optional[int], fecha_ingreso: Optional[str]) -> bool:
+        if anio_ingreso == current_year:
+            return True
+        if fecha_ingreso:
+            f_dt = parse_date_robust(fecha_ingreso)
+            if f_dt and f_dt.year == current_year:
+                return True
+        dt = parse_date_robust(exam_str)
+        return bool(dt and cutoff_date <= dt.date() <= today_limit)
 
     # Filter by condicion: 'activos', 'inactivos', 'recibidos'
     if condicion:
@@ -108,11 +119,13 @@ def get_alumnos(
                 Alumno.id,
                 Alumno.ultimo_examen,
                 Alumno.total_actividades,
-                Alumno.actividades_aprobadas
+                Alumno.actividades_aprobadas,
+                Alumno.anio_ingreso,
+                Alumno.fecha_ingreso
             ).all()
 
             matching_ids = []
-            for a_id, exam_str, total_act, aprob_act in candidate_rows:
+            for a_id, exam_str, total_act, aprob_act, anio_ing, f_ing in candidate_rows:
                 is_egresado = (total_act or 0) > 0 and (aprob_act or 0) >= (total_act or 0)
                 if cond == "recibidos":
                     if is_egresado:
@@ -120,8 +133,7 @@ def get_alumnos(
                 elif is_egresado:
                     continue
                 else:
-                    dt = parse_date_robust(exam_str)
-                    is_active = bool(dt and cutoff_date <= dt.date() <= today_limit)
+                    is_active = is_alumno_activo(exam_str, anio_ing, f_ing)
                     if cond == "activos" and is_active:
                         matching_ids.append(a_id)
                     elif cond == "inactivos" and not is_active:
@@ -133,23 +145,20 @@ def get_alumnos(
     total = query.count()
 
     # Calculate activos matching the active query (before pagination offset/limit)
-    # whose ultimo_examen is within the last 12 months (365 days) and who are NOT egresados
+    # who are enrolled in current year OR whose ultimo_examen is within the last 12 months (365 days), and who are NOT egresados
     activos = 0
     exam_rows = query.with_entities(
         Alumno.ultimo_examen,
         Alumno.total_actividades,
-        Alumno.actividades_aprobadas
-    ).filter(
-        Alumno.ultimo_examen.isnot(None),
-        Alumno.ultimo_examen != ""
+        Alumno.actividades_aprobadas,
+        Alumno.anio_ingreso,
+        Alumno.fecha_ingreso
     ).all()
 
-    for exam_str, total_act, aprob_act in exam_rows:
+    for exam_str, total_act, aprob_act, anio_ing, f_ing in exam_rows:
         is_egresado = (total_act or 0) > 0 and (aprob_act or 0) >= (total_act or 0)
-        if not is_egresado:
-            dt = parse_date_robust(exam_str)
-            if dt and cutoff_date <= dt.date() <= today_limit:
-                activos += 1
+        if not is_egresado and is_alumno_activo(exam_str, anio_ing, f_ing):
+            activos += 1
 
     # Calculate promedio_historico
     # When propuesta_id is specified:
@@ -173,9 +182,7 @@ def get_alumnos(
     offset = (page - 1) * limit
     # Dynamic sorting
     sort_fields = {
-        "documento": Alumno.documento,
         "apellido_nombre": Alumno.apellido_nombre,
-        "legajo": Alumno.legajo,
         "plan": Alumno.plan,
         "anio_ingreso": Alumno.anio_ingreso,
         "duracion": Alumno.anio_ingreso,
@@ -185,7 +192,6 @@ def get_alumnos(
         "actividades_aprobadas": Alumno.actividades_aprobadas,
         "ultimo_examen": Alumno.ultimo_examen,
         "ultima_reinscripcion": Alumno.ultima_reinscripcion,
-        "fecha_nacimiento": Alumno.fecha_nacimiento,
     }
     sort_col = sort_fields.get(sort_by, Alumno.apellido_nombre)
     is_desc = bool(sort_dir and sort_dir.lower() == "desc")

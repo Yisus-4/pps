@@ -296,6 +296,41 @@ export default function AlumnosPage() {
     if (a.total_actividades > 0 && a.actividades_aprobadas >= a.total_actividades) {
       return "recibido";
     }
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    // Students enrolled in the current year are automatically active
+    if (a.anio_ingreso === currentYear) {
+      return "activo";
+    }
+    if (a.fecha_ingreso && a.fecha_ingreso.trim()) {
+      const fStr = a.fecha_ingreso.trim();
+      const token = fStr.split(" ")[0].split("T")[0];
+      let fYear: number | null = null;
+      if (token.includes("/")) {
+        const parts = token.split("/");
+        if (parts.length === 3) {
+          const p0 = parseInt(parts[0], 10);
+          const p2 = parseInt(parts[2], 10);
+          if (p0 > 1000) fYear = p0;
+          else if (p2 > 1000) fYear = p2;
+          else if (p2 < 100) fYear = 2000 + p2;
+        }
+      } else if (token.includes("-")) {
+        const parts = token.split("-");
+        if (parts.length === 3) {
+          const p0 = parseInt(parts[0], 10);
+          const p2 = parseInt(parts[2], 10);
+          if (p0 > 1000) fYear = p0;
+          else if (p2 > 1000) fYear = p2;
+        }
+      }
+      if (fYear === currentYear) {
+        return "activo";
+      }
+    }
+
     if (!a.ultimo_examen || !a.ultimo_examen.trim()) {
       return "inactivo";
     }
@@ -337,7 +372,6 @@ export default function AlumnosPage() {
       return "inactivo";
     }
 
-    const now = new Date();
     const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 365);
     const limit = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
@@ -521,7 +555,7 @@ export default function AlumnosPage() {
                   setSearchTerm(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Buscar por Nombre, DNI o Legajo..."
+                placeholder="Buscar por Apellido y Nombre..."
                 className="w-full pl-9 pr-4 py-2 text-xs border border-[#E6E0DD] rounded-lg text-[#1F1A1C] placeholder-[#A98B99] focus:outline-hidden focus:ring-2 focus:ring-[#826170] focus:border-[#826170]"
               />
             </div>
@@ -636,9 +670,9 @@ export default function AlumnosPage() {
                       <span>Estado</span>
                     </th>
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
-                    {renderSortableHeader("documento", "Documento", "px-3 py-3.5")}
-                    {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
-                    {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
+                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Documento</th>
+                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44] text-center">Edad</th>
+                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Legajo</th>
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
                     {renderSortableHeader("duracion", "Duración", "px-3 py-3.5", "center")}
                     {renderSortableHeader("ultimo_examen", "Último Examen", "px-3 py-3.5")}
@@ -756,9 +790,9 @@ export default function AlumnosPage() {
                       <span>Estado</span>
                     </th>
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
-                    {renderSortableHeader("documento", "Documento", "px-4 py-3.5")}
-                    {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
-                    {renderSortableHeader("legajo", "Legajo", "px-3 py-3.5")}
+                    <th scope="col" className="px-4 py-3.5 select-none font-bold text-[#4F3A44]">Documento</th>
+                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44] text-center">Edad</th>
+                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Legajo</th>
                     {renderSortableHeader("plan", "Plan", "px-3 py-3.5")}
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
                     {renderSortableHeader("duracion", "Duración", "px-3 py-3.5", "center")}

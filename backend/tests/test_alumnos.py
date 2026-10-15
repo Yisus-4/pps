@@ -33,7 +33,7 @@ def test_query_alumnos_pagination(client, admin_headers):
     assert data["total_pages"] == 14
     assert len(data["items"]) == 20
     # propuesta_id is None -> promedio_historico is None, activos is computed for all 275 (excluding egresados)
-    assert data["activos"] == 58
+    assert data["activos"] == 67
     assert data["promedio_historico"] is None
 
 
@@ -94,14 +94,12 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
     assert res.status_code == 200
     data = res.json()
     assert data["total"] == 275
-    assert data["activos"] == 58
+    assert data["activos"] == 67
     assert data["promedio_historico"] == 8.01
 
     # Verify that sorting by any field does NOT change total, activos, or promedio_historico
     sort_fields = [
         "apellido_nombre",
-        "documento",
-        "legajo",
         "plan",
         "anio_ingreso",
         "duracion",
@@ -109,7 +107,6 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
         "promedio_sin_aplazos",
         "actividades_aprobadas",
         "ultimo_examen",
-        "fecha_nacimiento",
     ]
     for field in sort_fields:
         for sort_dir in ["asc", "desc"]:
@@ -120,7 +117,7 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
             assert res_sort.status_code == 200
             s_data = res_sort.json()
             assert s_data["total"] == 275, f"Total changed on sorting by {field} {sort_dir}"
-            assert s_data["activos"] == 58, f"Activos changed on sorting by {field} {sort_dir}"
+            assert s_data["activos"] == 67, f"Activos changed on sorting by {field} {sort_dir}"
             assert s_data["promedio_historico"] == 8.01, f"Promedio historico changed on sorting by {field} {sort_dir}"
             assert len(s_data["items"]) == 10
 
@@ -163,29 +160,30 @@ def test_activos_date_formats_dd_mm_yyyy_and_yyyy_mm_dd(client, admin_headers, d
 
 
 def test_condicion_filtering_and_egresados_exclusion(client, admin_headers):
-    # Total students is 275, of which 5 are egresados, 58 are activos, 212 are inactivos
+    # Total students is 275, of which 5 are egresados, 67 are activos, 203 are inactivos
     res_all = client.get("/api/alumnos", headers=admin_headers)
     assert res_all.status_code == 200
     data_all = res_all.json()
     assert data_all["total"] == 275
-    assert data_all["activos"] == 58
+    assert data_all["activos"] == 67
 
-    # 1. Filter by 'activos': students who are NOT egresados and have exam within last 12 months
+    # 1. Filter by 'activos': students who are NOT egresados and (enrolled in current year OR have exam within last 12 months)
     res_act = client.get("/api/alumnos?condicion=activos&limit=100", headers=admin_headers)
     assert res_act.status_code == 200
     data_act = res_act.json()
-    assert data_act["total"] == 58
-    assert data_act["activos"] == 58
+    assert data_act["total"] == 67
+    assert data_act["activos"] == 67
+    now_year = datetime.now().year
     for item in data_act["items"]:
         is_egresado = item["total_actividades"] > 0 and item["actividades_aprobadas"] >= item["total_actividades"]
         assert not is_egresado
-        assert item["ultimo_examen"] is not None
+        assert item["anio_ingreso"] == now_year or item["ultimo_examen"] is not None
 
-    # 2. Filter by 'inactivos': students who are NOT egresados and have NO exam in last 12 months
+    # 2. Filter by 'inactivos': students who are NOT egresados and are NOT active
     res_inact = client.get("/api/alumnos?condicion=inactivos&limit=100", headers=admin_headers)
     assert res_inact.status_code == 200
     data_inact = res_inact.json()
-    assert data_inact["total"] == 212
+    assert data_inact["total"] == 203
     assert data_inact["activos"] == 0
     for item in data_inact["items"]:
         is_egresado = item["total_actividades"] > 0 and item["actividades_aprobadas"] >= item["total_actividades"]
@@ -251,4 +249,93 @@ def test_duracion_en_carrera_calculation_and_sorting(client, admin_headers, db_s
     desc_items = res_desc.json()["items"]
     valid_desc_anios = [i["anio_ingreso"] for i in desc_items if i["anio_ingreso"] is not None]
     assert valid_desc_anios == sorted(valid_desc_anios)
+
+
+def test_current_year_enrollment_activos_logic(client, admin_headers, db_session):
+    now = datetime.now()
+    current_year = now.year
+
+    # Get an existing student who is not egresado and currently inactivo
+    student = db_session.query(Alumno).filter(
+        Alumno.total_actividades > Alumno.actividades_aprobadas
+    ).first()
+    assert student is not None
+
+    # Case 1: Past year enrollment and no exam -> Inactivo
+    student.anio_ingreso = current_year - 2
+    student.fecha_ingreso = f"15/03/{current_year - 2}"
+    student.ultimo_examen = None
+    db_session.commit()
+
+    res = client.get(f"/api/alumnos?search={student.documento}", headers=admin_headers)
+    assert res.status_code == 200
+    assert res.json()["activos"] == 0
+
+    res_act = client.get(f"/api/alumnos?condicion=activos&search={student.documento}", headers=admin_headers)
+    assert res_act.status_code == 200
+    assert res_act.json()["total"] == 0
+
+    res_inact = client.get(f"/api/alumnos?condicion=inactivos&search={student.documento}", headers=admin_headers)
+    assert res_inact.status_code == 200
+    assert res_inact.json()["total"] == 1
+
+    # Case 2: Current year enrollment via anio_ingreso, NO exam -> Activo
+    student.anio_ingreso = current_year
+    student.fecha_ingreso = None
+    student.ultimo_examen = None
+    db_session.commit()
+
+    res = client.get(f"/api/alumnos?search={student.documento}", headers=admin_headers)
+    assert res.status_code == 200
+    assert res.json()["activos"] == 1
+
+    res_act = client.get(f"/api/alumnos?condicion=activos&search={student.documento}", headers=admin_headers)
+    assert res_act.status_code == 200
+    assert res_act.json()["total"] == 1
+
+    res_inact = client.get(f"/api/alumnos?condicion=inactivos&search={student.documento}", headers=admin_headers)
+    assert res_inact.status_code == 200
+    assert res_inact.json()["total"] == 0
+
+    # Case 3: Current year enrollment via fecha_ingreso (anio_ingreso is None), NO exam -> Activo
+    student.anio_ingreso = None
+    student.fecha_ingreso = f"01/03/{current_year}"
+    student.ultimo_examen = None
+    db_session.commit()
+
+    res = client.get(f"/api/alumnos?search={student.documento}", headers=admin_headers)
+    assert res.status_code == 200
+    assert res.json()["activos"] == 1
+
+    # Case 4: Past year enrollment with exam within 12 months -> Activo
+    student.anio_ingreso = current_year - 1
+    student.fecha_ingreso = f"01/03/{current_year - 1}"
+    student.ultimo_examen = (now - timedelta(days=60)).strftime("%d/%m/%Y")
+    db_session.commit()
+
+    res = client.get(f"/api/alumnos?search={student.documento}", headers=admin_headers)
+    assert res.status_code == 200
+    assert res.json()["activos"] == 1
+
+    # Case 5: Past year enrollment with expired exam (>365 days ago) -> Inactivo
+    student.ultimo_examen = (now - timedelta(days=400)).strftime("%d/%m/%Y")
+    db_session.commit()
+
+    res = client.get(f"/api/alumnos?search={student.documento}", headers=admin_headers)
+    assert res.status_code == 200
+    assert res.json()["activos"] == 0
+
+    # Case 6: Student with current year enrollment but is egresado -> Recibido (not Activo)
+    student.anio_ingreso = current_year
+    student.total_actividades = 10
+    student.actividades_aprobadas = 10
+    db_session.commit()
+
+    res_rec = client.get(f"/api/alumnos?condicion=recibidos&search={student.documento}", headers=admin_headers)
+    assert res_rec.status_code == 200
+    assert res_rec.json()["total"] == 1
+
+    res_act = client.get(f"/api/alumnos?condicion=activos&search={student.documento}", headers=admin_headers)
+    assert res_act.status_code == 200
+    assert res_act.json()["total"] == 0
 
