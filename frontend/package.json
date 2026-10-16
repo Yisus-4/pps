@@ -19,6 +19,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.10",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
