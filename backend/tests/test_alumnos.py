@@ -399,3 +399,75 @@ def test_chronological_sorting_edad_and_ultimo_examen(client, admin_headers):
     assert all(yr == 2026 for yr in top_ue_desc_years)
 
 
+def test_alumnos_estadisticas_endpoint(client, admin_headers, ingenieria_headers, sociales_headers, db_session):
+    esc_ing = db_session.query(Escuela).filter(Escuela.nombre == "Escuela de Ingeniería").first()
+    res_prop = client.get(f"/api/escuelas/{esc_ing.id}/propuestas", headers=admin_headers)
+    assert res_prop.status_code == 200
+    prop_id = res_prop.json()[0]["id"]
+
+    # 1. Admin query without filter
+    res = client.get("/api/alumnos/estadisticas", headers=admin_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_alumnos"] == 275
+    assert data["activos"] == 67
+    assert data["egresados"] == 5
+    assert data["inactivos"] == 203
+    assert data["promedio_historico"] == 8.01
+    assert data["avance_promedio_general"] > 0
+    assert data["avance_promedio_cursantes"] > 0
+    assert data["alumnos_en_riesgo"] > 0
+
+    # Verify histograma_materias
+    hist = data["histograma_materias"]
+    assert len(hist) > 0
+    assert hist[0]["materias"] == 0
+    assert sum(h["cantidad"] for h in hist) == 275
+
+    # Verify tramos_avance
+    tramos = data["tramos_avance"]
+    assert len(tramos) == 6
+    assert tramos[0]["tramo"] == "0% (Sin avance)"
+    assert tramos[5]["tramo"] == "100% (Egresados)"
+    assert sum(t["cantidad"] for t in tramos) == 275
+    assert tramos[5]["cantidad"] == 5
+
+    # Verify cohortes
+    cohortes = data["cohortes"]
+    assert len(cohortes) > 0
+    assert all(c["cursantes"] + c["egresados"] + c["inactivos"] == c["total"] for c in cohortes)
+    assert sum(c["total"] for c in cohortes) == 275
+
+    # Verify distribucion_promedios
+    dist = data["distribucion_promedios"]
+    assert len(dist) == 6
+    assert [d["rango"] for d in dist] == [
+        "< 4",
+        "4.0 - 5.9",
+        "6.0 - 6.9",
+        "7.0 - 7.9",
+        "8.0 - 8.9",
+        "9.0 - 10",
+    ]
+
+    # 2. Filter by propuesta_id
+    res_prop_filter = client.get(f"/api/alumnos/estadisticas?propuesta_id={prop_id}", headers=admin_headers)
+    assert res_prop_filter.status_code == 200
+    assert res_prop_filter.json()["total_alumnos"] == 275
+
+    # 3. Role-based access
+    # Ingeniería coordinator
+    res_ing = client.get("/api/alumnos/estadisticas", headers={"Authorization": ingenieria_headers["Authorization"]})
+    assert res_ing.status_code == 200
+    assert res_ing.json()["total_alumnos"] == 275
+
+    # Sociales coordinator
+    res_soc = client.get("/api/alumnos/estadisticas", headers={"Authorization": sociales_headers["Authorization"]})
+    assert res_soc.status_code == 200
+    soc_data = res_soc.json()
+    assert soc_data["total_alumnos"] == 0
+    assert soc_data["activos"] == 0
+    assert soc_data["egresados"] == 0
+    assert soc_data["promedio_historico"] is None
+
+

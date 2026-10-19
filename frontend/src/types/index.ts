@@ -111,3 +111,43 @@ export interface CargaHistorial {
   nuevos: number;
   actualizados: number;
 }
+
+export interface HistogramaMateriasItem {
+  materias: number;
+  cantidad: number;
+}
+
+export interface TramoAvanceItem {
+  tramo: string;
+  rango: string;
+  cantidad: number;
+  porcentaje: number;
+}
+
+export interface CohorteItem {
+  anio: number;
+  cursantes: number;
+  egresados: number;
+  inactivos: number;
+  total: number;
+}
+
+export interface DistribucionPromediosItem {
+  rango: string;
+  cantidad: number;
+}
+
+export interface AlumnosEstadisticas {
+  total_alumnos: number;
+  activos: number;
+  egresados: number;
+  inactivos: number;
+  promedio_historico: number | null;
+  avance_promedio_general: number;
+  avance_promedio_cursantes: number;
+  histograma_materias: HistogramaMateriasItem[];
+  tramos_avance: TramoAvanceItem[];
+  cohortes: CohorteItem[];
+  distribucion_promedios: DistribucionPromediosItem[];
+  alumnos_en_riesgo: number;
+}

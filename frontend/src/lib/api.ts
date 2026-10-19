@@ -1,4 +1,5 @@
 import {
+  AlumnosEstadisticas,
   AlumnosPaginatedResponse,
   CargaHistorial,
   Escuela,
@@ -165,6 +166,20 @@ export const alumnosApi = {
 
     const qs = searchParams.toString();
     return request<AlumnosPaginatedResponse>(`/api/alumnos${qs ? `?${qs}` : ""}`, {
+      method: "GET",
+    });
+  },
+
+  getEstadisticas: async (params: {
+    escuela_id?: number | null;
+    propuesta_id?: number | null;
+  }): Promise<AlumnosEstadisticas> => {
+    const searchParams = new URLSearchParams();
+    if (params.escuela_id) searchParams.append("escuela_id", params.escuela_id.toString());
+    if (params.propuesta_id) searchParams.append("propuesta_id", params.propuesta_id.toString());
+
+    const qs = searchParams.toString();
+    return request<AlumnosEstadisticas>(`/api/alumnos/estadisticas${qs ? `?${qs}` : ""}`, {
       method: "GET",
     });
   },

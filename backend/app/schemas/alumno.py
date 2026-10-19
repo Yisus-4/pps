@@ -42,3 +42,43 @@ class AlumnosPaginated(BaseModel):
     activos: int = 0
     egresados: int = 0
     promedio_historico: Optional[float] = None
+
+
+class HistogramaMateriasItem(BaseModel):
+    materias: int
+    cantidad: int
+
+
+class TramoAvanceItem(BaseModel):
+    tramo: str
+    rango: str
+    cantidad: int
+    porcentaje: float
+
+
+class CohorteItem(BaseModel):
+    anio: int
+    cursantes: int
+    egresados: int
+    inactivos: int
+    total: int
+
+
+class DistribucionPromediosItem(BaseModel):
+    rango: str
+    cantidad: int
+
+
+class AlumnosEstadisticasOut(BaseModel):
+    total_alumnos: int
+    activos: int
+    egresados: int
+    inactivos: int
+    promedio_historico: Optional[float] = None
+    avance_promedio_general: float
+    avance_promedio_cursantes: float
+    histograma_materias: List[HistogramaMateriasItem]
+    tramos_avance: List[TramoAvanceItem]
+    cohortes: List[CohorteItem]
+    distribucion_promedios: List[DistribucionPromediosItem]
+    alumnos_en_riesgo: int

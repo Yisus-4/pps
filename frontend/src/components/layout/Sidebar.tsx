@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   GraduationCap,
+  BarChart3,
   UploadCloud,
   Users,
   LogOut,
@@ -34,6 +35,12 @@ function SidebarContent({ onCloseMobile }: SidebarContentProps) {
       href: "/alumnos",
       icon: GraduationCap,
       active: pathname === "/" || pathname.startsWith("/alumnos"),
+    },
+    {
+      name: "Dashboards",
+      href: "/dashboards",
+      icon: BarChart3,
+      active: pathname.startsWith("/dashboards"),
     },
     {
       name: "Cargar Datos",
