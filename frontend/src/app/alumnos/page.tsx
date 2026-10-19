@@ -510,7 +510,7 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* KPI Cards (Métricas: Alumnos, Activos, Egresados y opcionalmente Promedio Histórico de Egresados) */}
+        {/* KPI Cards (Métricas: Alumnos, Cursantes, Egresados y opcionalmente Promedio Histórico de Egresados) */}
         <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-4" : "sm:grid-cols-3"} gap-4`}>
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
@@ -521,19 +521,19 @@ export default function AlumnosPage() {
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-[#3F6B4F]" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#2563EB]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-              Activos
+              Cursantes
             </p>
-            <p className="text-2xl font-black text-[#3F6B4F] mt-1">{activos}</p>
+            <p className="text-2xl font-black text-[#1D4ED8] mt-1">{activos}</p>
           </div>
 
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-[#2563EB]" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#10B981]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
               Egresados
             </p>
-            <p className="text-2xl font-black text-[#1D4ED8] mt-1">{egresados}</p>
+            <p className="text-2xl font-black text-[#3F6B4F] mt-1">{egresados}</p>
           </div>
 
           {selectedPropuestaId !== null && (
@@ -626,7 +626,7 @@ export default function AlumnosPage() {
             <div className="flex flex-wrap items-center gap-1.5">
               {[
                 { value: "", label: "Todos los alumnos" },
-                { value: "activos", label: "🟢 Activos" },
+                { value: "activos", label: "🔵 Cursantes" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -635,10 +635,10 @@ export default function AlumnosPage() {
                     setCondicion(item.value);
                     setPage(1);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     condicion === item.value
                       ? item.value === "activos"
-                        ? "bg-emerald-600 text-white shadow-2xs"
+                        ? "bg-blue-600 text-white shadow-2xs"
                         : "bg-[#826170] text-white shadow-2xs"
                       : "bg-[#F1E9ED] text-[#4F3A44] hover:bg-[#E6DEE2]"
                   }`}
@@ -725,13 +725,13 @@ export default function AlumnosPage() {
                           <td className="px-3 py-3 text-center whitespace-nowrap">
                             {cond === "recibido" ? (
                               <span
-                                className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200"
+                                className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200"
                                 title="Recibido / Egresado"
                               />
                             ) : cond === "activo" ? (
                               <span
-                                className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200"
-                                title="Activo (examen en últimos 12 meses)"
+                                className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200"
+                                title="Cursante (examen en últimos 12 meses)"
                               />
                             ) : (
                               <span
@@ -771,10 +771,37 @@ export default function AlumnosPage() {
                               ? a.promedio_con_aplazos.toFixed(2)
                               : "-"}
                           </td>
-                          <td className="px-3 py-3 text-center font-mono text-[#1F1A1C] whitespace-nowrap">
-                            <span className="font-semibold text-[#4F3A44]">{a.actividades_aprobadas}</span>
-                            {" / "}
-                            <span>{a.total_actividades}</span>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {(() => {
+                              const pct =
+                                a.total_actividades > 0
+                                  ? Math.min(
+                                      100,
+                                      Math.round(
+                                        (a.actividades_aprobadas / a.total_actividades) * 100
+                                      )
+                                    )
+                                  : 0;
+                              const isEgresado = cond === "recibido" || pct >= 100;
+                              return (
+                                <div className="min-w-[130px]">
+                                  <div className="flex justify-between items-center text-xs mb-1">
+                                    <span className="font-bold text-[#1F1A1C]">{pct}%</span>
+                                    <span className="text-[#6B6166] text-[11px] font-mono">
+                                      {a.actividades_aprobadas}/{a.total_actividades}
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-[#EAE5E2] rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-300 ${
+                                        isEgresado ? "bg-emerald-500" : "bg-blue-600"
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
@@ -850,21 +877,21 @@ export default function AlumnosPage() {
                               {cond === "recibido" ? (
                                 <>
                                   <span
-                                    className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"
+                                    className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"
                                     title="Recibido / Egresado"
                                   />
-                                  <span className="font-semibold text-blue-700 text-[11px]" title="Recibido / Egresado">
+                                  <span className="font-semibold text-emerald-700 text-[11px]" title="Recibido / Egresado">
                                     Recibido
                                   </span>
                                 </>
                               ) : cond === "activo" ? (
                                 <>
                                   <span
-                                    className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"
-                                    title="Activo (examen en últimos 12 meses)"
+                                    className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"
+                                    title="Cursante (examen en últimos 12 meses)"
                                   />
-                                  <span className="font-semibold text-emerald-700 text-[11px]" title="Activo (examen en últimos 12 meses)">
-                                    Activo
+                                  <span className="font-semibold text-blue-700 text-[11px]" title="Cursante (examen en últimos 12 meses)">
+                                    Cursante
                                   </span>
                                 </>
                               ) : (
@@ -917,12 +944,37 @@ export default function AlumnosPage() {
                               ? a.promedio_sin_aplazos.toFixed(2)
                               : "-"}
                           </td>
-                          <td className="px-3 py-3 text-center font-mono text-[#6B6166] whitespace-nowrap">
-                            <span className="font-semibold text-[#4F3A44]">
-                              {a.actividades_aprobadas}
-                            </span>
-                            {" / "}
-                            <span>{a.total_actividades}</span>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {(() => {
+                              const pct =
+                                a.total_actividades > 0
+                                  ? Math.min(
+                                      100,
+                                      Math.round(
+                                        (a.actividades_aprobadas / a.total_actividades) * 100
+                                      )
+                                    )
+                                  : 0;
+                              const isEgresado = cond === "recibido" || pct >= 100;
+                              return (
+                                <div className="min-w-[130px]">
+                                  <div className="flex justify-between items-center text-xs mb-1">
+                                    <span className="font-bold text-[#1F1A1C]">{pct}%</span>
+                                    <span className="text-[#6B6166] text-[11px] font-mono">
+                                      {a.actividades_aprobadas}/{a.total_actividades}
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-[#EAE5E2] rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-300 ${
+                                        isEgresado ? "bg-emerald-500" : "bg-blue-600"
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
@@ -998,14 +1050,14 @@ export default function AlumnosPage() {
                     {(() => {
                       const cond = getStudentCondition(selectedAlumno);
                       return cond === "recibido" ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1" />
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
                           Recibido
                         </span>
                       ) : cond === "activo" ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
-                          Activo
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1" />
+                          Cursante
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
@@ -1021,7 +1073,7 @@ export default function AlumnosPage() {
                 </div>
                 <button
                   onClick={() => setSelectedAlumno(null)}
-                  className="p-1.5 text-[#6B6166] hover:text-[#4F3A44] rounded-lg hover:bg-[#F1E9ED] transition-colors"
+                  className="p-1.5 text-[#6B6166] hover:text-[#4F3A44] rounded-lg hover:bg-[#F1E9ED] transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1100,9 +1152,39 @@ export default function AlumnosPage() {
                     </div>
                     <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
                       <span className="text-[11px] text-[#6B6166] block">Actividades (Aprob./Tot.)</span>
-                      <span className="text-lg font-black text-[#1F1A1C] font-mono mt-0.5 block">
-                        {selectedAlumno.actividades_aprobadas} / {selectedAlumno.total_actividades}
-                      </span>
+                      {(() => {
+                        const pct =
+                          selectedAlumno.total_actividades > 0
+                            ? Math.min(
+                                100,
+                                Math.round(
+                                  (selectedAlumno.actividades_aprobadas /
+                                    selectedAlumno.total_actividades) *
+                                    100
+                                )
+                              )
+                            : 0;
+                        const isEgresado =
+                          getStudentCondition(selectedAlumno) === "recibido" || pct >= 100;
+                        return (
+                          <div className="mt-0.5">
+                            <div className="flex items-baseline justify-center space-x-1.5">
+                              <span className="text-base font-black text-[#1F1A1C] font-mono">
+                                {selectedAlumno.actividades_aprobadas}/{selectedAlumno.total_actividades}
+                              </span>
+                              <span className="text-xs font-bold text-[#6B6166]">({pct}%)</span>
+                            </div>
+                            <div className="w-full bg-[#EAE5E2] rounded-full h-1.5 mt-1.5 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  isEgresado ? "bg-emerald-500" : "bg-blue-600"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="bg-[#FAF8F7] p-3 rounded-xl border border-[#E6E0DD] text-center">
                       <span className="text-[11px] text-[#6B6166] block">Último Examen</span>
@@ -1148,8 +1230,8 @@ export default function AlumnosPage() {
                           <span
                             className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
                               getStudentCondition(selectedAlumno) === "recibido"
-                                ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : "bg-blue-50 text-blue-800 border border-blue-200"
                             }`}
                           >
                             {getStudentCondition(selectedAlumno) === "recibido" ? "Graduación" : "En curso"}
