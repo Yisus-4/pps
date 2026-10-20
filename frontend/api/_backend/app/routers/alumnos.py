@@ -86,6 +86,7 @@ def get_alumnos(
     search: Optional[str] = Query(None, description="Buscar por nombre o documento"),
     estado_inscripcion: Optional[str] = Query(None, description="Filtrar por estado de inscripción"),
     condicion: Optional[str] = Query(None, description="Filtrar por 'activos', 'inactivos', 'recibidos'"),
+    en_riesgo: Optional[bool] = Query(None, description="Filtrar alumnos en riesgo: duracion >= 3 años y avance < 25%"),
     sort_by: Optional[str] = Query("apellido_nombre", description="Campo por el cual ordenar"),
     sort_dir: Optional[str] = Query("asc", description="Dirección del ordenamiento: 'asc' o 'desc'"),
     page: int = Query(1, ge=1, description="Número de página"),
@@ -157,6 +158,30 @@ def get_alumnos(
                         matching_ids.append(a_id)
 
             query = query.filter(Alumno.id.in_(matching_ids))
+
+    # Filter by en_riesgo: duration >= 3 years, progress < 25%, and not egresado
+    if en_riesgo:
+        current_year_risk = now.year
+        risk_candidates = query.with_entities(
+            Alumno.id,
+            Alumno.anio_ingreso,
+            Alumno.actividades_aprobadas,
+            Alumno.total_actividades,
+        ).all()
+        risk_ids = []
+        for a_id, anio_ing, aprob_val, total_val in risk_candidates:
+            if not anio_ing:
+                continue
+            aprobadas = aprob_val or 0
+            total_act = total_val or 0
+            is_egresado = total_act > 0 and aprobadas >= total_act
+            if is_egresado:
+                continue
+            duracion = max(0, current_year_risk - anio_ing)
+            pct = (aprobadas / total_act * 100.0) if total_act > 0 else 0.0
+            if duracion >= 3 and pct < 25.0:
+                risk_ids.append(a_id)
+        query = query.filter(Alumno.id.in_(risk_ids))
 
     # Count total matching
     total = query.count()

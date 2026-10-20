@@ -455,6 +455,18 @@ def test_alumnos_estadisticas_endpoint(client, admin_headers, ingenieria_headers
     assert res_prop_filter.status_code == 200
     assert res_prop_filter.json()["total_alumnos"] == 275
 
+    # Verify en_riesgo filter in /api/alumnos matches estadisticas.alumnos_en_riesgo
+    expected_riesgo = data["alumnos_en_riesgo"]
+    res_riesgo = client.get(f"/api/alumnos?propuesta_id={prop_id}&en_riesgo=true&limit=500", headers=admin_headers)
+    assert res_riesgo.status_code == 200
+    riesgo_data = res_riesgo.json()
+    assert riesgo_data["total"] == expected_riesgo
+    assert len(riesgo_data["items"]) == expected_riesgo
+    for item in riesgo_data["items"]:
+        assert item["duracion_anios"] is not None and item["duracion_anios"] >= 3
+        pct = (item["actividades_aprobadas"] / item["total_actividades"] * 100.0) if item["total_actividades"] > 0 else 0.0
+        assert pct < 25.0
+
     # 3. Role-based access
     # Ingeniería coordinator
     res_ing = client.get("/api/alumnos/estadisticas", headers={"Authorization": ingenieria_headers["Authorization"]})

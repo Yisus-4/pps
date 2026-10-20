@@ -25,6 +25,7 @@ import {
   BookOpen,
   Award,
   User,
+  AlertTriangle,
   X,
 } from "lucide-react";
 
@@ -53,6 +54,8 @@ export default function AlumnosPage() {
   const [selectedPropuestaId, setSelectedPropuestaId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [condicion, setCondicion] = useState<string>("");
+  const [enRiesgo, setEnRiesgo] = useState<boolean>(false);
+  const [initialPropuestaIdFromUrl, setInitialPropuestaIdFromUrl] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<string>("apellido_nombre");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
@@ -97,6 +100,25 @@ export default function AlumnosPage() {
     fetchEscuelas();
   }, [user]);
 
+  // Read initial URL query params (en_riesgo, escuela_id, propuesta_id)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("en_riesgo") === "true") {
+        setEnRiesgo(true);
+      }
+      const escParam = params.get("escuela_id");
+      if (escParam && !isNaN(Number(escParam))) {
+        setSelectedEscuelaId(Number(escParam));
+      }
+      const propParam = params.get("propuesta_id");
+      if (propParam && !isNaN(Number(propParam))) {
+        setInitialPropuestaIdFromUrl(Number(propParam));
+        setSelectedPropuestaId(Number(propParam));
+      }
+    }
+  }, []);
+
   // Load carreras (propuestas) when selected school changes
   useEffect(() => {
     const fetchPropuestas = async () => {
@@ -109,14 +131,22 @@ export default function AlumnosPage() {
       try {
         const data = await escuelasApi.getPropuestas(selectedEscuelaId);
         setPropuestas(data);
-        // Reset selected proposal if it does not belong to this school
-        setSelectedPropuestaId(null);
+        if (
+          initialPropuestaIdFromUrl &&
+          data.some((p) => p.id === initialPropuestaIdFromUrl)
+        ) {
+          setSelectedPropuestaId(initialPropuestaIdFromUrl);
+          setInitialPropuestaIdFromUrl(null);
+        } else {
+          setSelectedPropuestaId(null);
+        }
       } catch (err) {
         console.error("Error cargando carreras:", err);
       }
     };
 
     fetchPropuestas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEscuelaId]);
 
   // Sort handler
@@ -171,6 +201,7 @@ export default function AlumnosPage() {
         propuesta_id: selectedPropuestaId,
         search: searchTerm,
         condicion: condicion || undefined,
+        en_riesgo: enRiesgo ? true : undefined,
         sort_by: sortBy,
         sort_dir: sortDir,
         page,
@@ -192,7 +223,7 @@ export default function AlumnosPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, sortBy, sortDir, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, enRiesgo, sortBy, sortDir, page, limit]);
 
   useEffect(() => {
     let ignore = false;
@@ -203,6 +234,7 @@ export default function AlumnosPage() {
           propuesta_id: selectedPropuestaId,
           search: searchTerm,
           condicion: condicion || undefined,
+          en_riesgo: enRiesgo ? true : undefined,
           sort_by: sortBy,
           sort_dir: sortDir,
           page,
@@ -236,7 +268,7 @@ export default function AlumnosPage() {
     return () => {
       ignore = true;
     };
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, sortBy, sortDir, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, enRiesgo, sortBy, sortDir, page, limit]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -621,32 +653,70 @@ export default function AlumnosPage() {
           </div>
 
           {/* Condition Filter Controls */}
-          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[#E6E0DD]">
-            <span className="text-xs font-bold text-[#4F3A44] mr-1">Condición:</span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                { value: "", label: "Todos los alumnos" },
-                { value: "activos", label: "🔵 Cursantes" },
-              ].map((item) => (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#E6E0DD]">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-[#4F3A44] mr-1">Condición:</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { value: "", label: "Todos los alumnos" },
+                  { value: "activos", label: "🔵 Cursantes" },
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => {
+                      setCondicion(item.value);
+                      if (item.value === "") {
+                        setEnRiesgo(false);
+                      }
+                      setPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      condicion === item.value && !(item.value === "" && enRiesgo)
+                        ? item.value === "activos"
+                          ? "bg-blue-600 text-white shadow-2xs"
+                          : "bg-[#826170] text-white shadow-2xs"
+                        : "bg-[#F1E9ED] text-[#4F3A44] hover:bg-[#E6DEE2]"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+
                 <button
-                  key={item.value}
                   type="button"
                   onClick={() => {
-                    setCondicion(item.value);
+                    setEnRiesgo((prev) => !prev);
                     setPage(1);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    condicion === item.value
-                      ? item.value === "activos"
-                        ? "bg-blue-600 text-white shadow-2xs"
-                        : "bg-[#826170] text-white shadow-2xs"
-                      : "bg-[#F1E9ED] text-[#4F3A44] hover:bg-[#E6DEE2]"
+                  className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    enRiesgo
+                      ? "bg-amber-600 text-white shadow-2xs"
+                      : "bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100"
                   }`}
                 >
-                  {item.label}
+                  <AlertTriangle className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                  <span>En Riesgo (≥3 años y &lt;25% avance)</span>
                 </button>
-              ))}
+              </div>
             </div>
+
+            {enRiesgo && (
+              <div className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                <span>Filtrando Alumnos en Riesgo</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEnRiesgo(false);
+                    setPage(1);
+                  }}
+                  className="ml-2 text-amber-700 hover:text-amber-950 cursor-pointer"
+                  title="Quitar filtro de alumnos en riesgo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

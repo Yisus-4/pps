@@ -162,7 +162,7 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-[#6B6166]">
-          Secretaría Académica • Universidad Nacional de Chilecito
+          Escuela de Ingeniería • Universidad Nacional de Chilecito
         </p>
       </div>
     </div>

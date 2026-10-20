@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/context/AuthContext";
 import { alumnosApi, escuelasApi } from "@/lib/api";
+import { exportAlumnosToCsv } from "@/lib/csv";
 import {
+  Alumno,
   AlumnosEstadisticas,
   Escuela,
   PropuestaFormativa,
@@ -31,6 +34,10 @@ import {
   BookOpen,
   PieChart as PieIcon,
   Layers,
+  Search,
+  Download,
+  ExternalLink,
+  X,
 } from "lucide-react";
 
 export default function DashboardsPage() {
@@ -49,6 +56,46 @@ export default function DashboardsPage() {
 
   // Histogram view mode: "detallado" | "agrupado"
   const [histMode, setHistMode] = useState<"detallado" | "agrupado">("detallado");
+
+  // Modal State: Alumnos en Riesgo
+  const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
+  const [riskAlumnos, setRiskAlumnos] = useState<Alumno[]>([]);
+  const [isLoadingRisk, setIsLoadingRisk] = useState(false);
+  const [riskSearch, setRiskSearch] = useState("");
+
+  const openRiskModal = async () => {
+    if (!selectedPropuestaId) return;
+    setIsRiskModalOpen(true);
+    setRiskSearch("");
+    setIsLoadingRisk(true);
+    try {
+      const res = await alumnosApi.getAll({
+        escuela_id: selectedEscuelaId,
+        propuesta_id: selectedPropuestaId,
+        en_riesgo: true,
+        sort_by: "duracion",
+        sort_dir: "desc",
+        limit: 500,
+      });
+      setRiskAlumnos(res.items);
+    } catch (err) {
+      console.error("Error cargando alumnos en riesgo:", err);
+      setRiskAlumnos([]);
+    } finally {
+      setIsLoadingRisk(false);
+    }
+  };
+
+  const filteredRiskAlumnos = useMemo(() => {
+    if (!riskSearch.trim()) return riskAlumnos;
+    const q = riskSearch.trim().toLowerCase();
+    return riskAlumnos.filter(
+      (a) =>
+        a.apellido_nombre.toLowerCase().includes(q) ||
+        a.documento.toLowerCase().includes(q) ||
+        (a.legajo && a.legajo.toLowerCase().includes(q))
+    );
+  }, [riskAlumnos, riskSearch]);
 
   // SSR hydration guard for Recharts
   const [isMounted, setIsMounted] = useState(false);
@@ -171,14 +218,22 @@ export default function DashboardsPage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {selectedPropuestaId && stats && stats.alumnos_en_riesgo > 0 && (
-              <div className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs">
-                <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-amber-600" />
+              <button
+                type="button"
+                onClick={openRiskModal}
+                title="Haga clic para ver el listado detallado de alumnos en riesgo"
+                className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs hover:bg-amber-100 hover:border-amber-400 transition-all cursor-pointer group"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-amber-600 shrink-0" />
                 <span>
                   <strong>{stats.alumnos_en_riesgo}</strong> alumnos en riesgo (≥3 años y &lt;25% avance)
                 </span>
-              </div>
+                <span className="ml-2 pl-2 border-l border-amber-300 text-[#A07A0B] group-hover:text-amber-950 underline decoration-amber-400 underline-offset-2">
+                  Ver listado →
+                </span>
+              </button>
             )}
 
             <button
@@ -793,6 +848,185 @@ export default function DashboardsPage() {
           </div>
         </div>
       </>
+    )}
+
+    {/* Modal Dialog: Alumnos en Riesgo Académico */}
+    {isRiskModalOpen && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        onClick={() => setIsRiskModalOpen(false)}
+      >
+        <div
+          className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-[#E6E0DD] animate-in fade-in zoom-in-95 duration-150"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Modal Header */}
+          <div className="bg-[#FAF8F7] px-6 py-4 border-b border-[#E6E0DD] flex items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
+                  <AlertTriangle className="w-5 h-5" />
+                </span>
+                <h3 className="text-lg font-black text-[#1F1A1C]">
+                  Alumnos en Riesgo Académico
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                  {filteredRiskAlumnos.length} de {riskAlumnos.length} alumnos
+                </span>
+              </div>
+              <p className="text-xs text-[#6B6166] mt-1">
+                {activeCarreraNombre ? `${activeCarreraNombre} • ` : ""}
+                Alumnos con <strong>3 o más años</strong> desde su ingreso y <strong>menos del 25%</strong> de materias aprobadas del plan de estudios.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsRiskModalOpen(false)}
+              className="p-1.5 text-[#6B6166] hover:text-[#4F3A44] rounded-lg hover:bg-[#F1E9ED] transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Search & Actions Subheader */}
+          <div className="px-6 py-3 bg-white border-b border-[#E6E0DD] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6B6166]">
+                <Search className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                value={riskSearch}
+                onChange={(e) => setRiskSearch(e.target.value)}
+                placeholder="Filtrar por Apellido, Nombre, Documento o Legajo..."
+                className="w-full pl-9 pr-4 py-1.5 text-xs border border-[#E6E0DD] rounded-lg text-[#1F1A1C] placeholder-[#A98B99] focus:outline-hidden focus:ring-2 focus:ring-[#826170]"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => exportAlumnosToCsv(filteredRiskAlumnos)}
+                disabled={filteredRiskAlumnos.length === 0}
+                className="inline-flex items-center px-3 py-1.5 border border-[#E6E0DD] rounded-lg text-xs font-semibold text-[#4F3A44] bg-white hover:bg-[#FAF8F7] disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5 text-[#826170]" />
+                Exportar CSV ({filteredRiskAlumnos.length})
+              </button>
+
+              <Link
+                href={`/alumnos?${new URLSearchParams({
+                  ...(selectedEscuelaId ? { escuela_id: String(selectedEscuelaId) } : {}),
+                  ...(selectedPropuestaId ? { propuesta_id: String(selectedPropuestaId) } : {}),
+                  en_riesgo: "true",
+                }).toString()}`}
+                className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#826170] hover:bg-[#4F3A44] transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Ver en Padrón de Alumnos
+              </Link>
+            </div>
+          </div>
+
+          {/* Table Body */}
+          <div className="flex-1 overflow-y-auto">
+            <table className="w-full divide-y divide-[#E6E0DD] text-left text-xs">
+              <thead className="bg-[#FAF8F7] text-[#4F3A44] font-bold uppercase tracking-wider sticky top-0 z-10 shadow-2xs">
+                <tr>
+                  <th className="px-4 py-3">Apellido y Nombre</th>
+                  <th className="px-3 py-3">Documento</th>
+                  <th className="px-3 py-3">Legajo</th>
+                  <th className="px-3 py-3 text-center">Año Ingreso</th>
+                  <th className="px-3 py-3 text-center">Duración</th>
+                  <th className="px-4 py-3">Avance Curricular</th>
+                  <th className="px-3 py-3">Último Examen</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E6E0DD] bg-white">
+                {isLoadingRisk ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-14 text-center text-[#6B6166]">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <div className="w-7 h-7 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
+                        <span className="text-xs font-semibold text-[#826170]">
+                          Cargando listado de alumnos en riesgo...
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredRiskAlumnos.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-[#6B6166]">
+                      No se encontraron alumnos con ese criterio de búsqueda.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRiskAlumnos.map((a) => {
+                    const pct =
+                      a.total_actividades > 0
+                        ? Math.round((a.actividades_aprobadas / a.total_actividades) * 100)
+                        : 0;
+                    return (
+                      <tr key={a.id} className="hover:bg-[#FAF8F7] transition-colors">
+                        <td className="px-4 py-2.5 font-semibold text-[#1F1A1C] whitespace-nowrap">
+                          {a.apellido_nombre}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-[#1F1A1C] whitespace-nowrap">
+                          {a.documento}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-[#6B6166] whitespace-nowrap">
+                          {a.legajo || "-"}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-[#6B6166] whitespace-nowrap">
+                          {a.anio_ingreso || "-"}
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-mono font-bold text-amber-800 whitespace-nowrap">
+                          {a.duracion_anios !== null && a.duracion_anios !== undefined
+                            ? `${a.duracion_anios} años`
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">
+                          <div className="min-w-[130px]">
+                            <div className="flex justify-between items-center text-[11px] mb-1">
+                              <span className="font-bold text-amber-900">{pct}%</span>
+                              <span className="text-[#6B6166] font-mono">
+                                {a.actividades_aprobadas}/{a.total_actividades}
+                              </span>
+                            </div>
+                            <div className="w-full bg-[#EAE5E2] rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-amber-500"
+                                style={{ width: `${Math.min(100, pct)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-[11px] text-[#6B6166] whitespace-nowrap">
+                          {a.ultimo_examen || "-"}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="bg-[#FAF8F7] px-6 py-3 border-t border-[#E6E0DD] flex items-center justify-between text-xs text-[#6B6166]">
+            <span>
+              Criterio: Duración en carrera ≥ 3 años y porcentaje de avance &lt; 25%
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsRiskModalOpen(false)}
+              className="px-4 py-2 bg-[#826170] hover:bg-[#4F3A44] text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
     )}
   </div>
 </AppLayout>
