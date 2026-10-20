@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
@@ -52,13 +53,15 @@ export default function LoginPage() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center mb-3">
-          <div className="w-16 h-16 rounded-2xl bg-[#826170] shadow-md flex items-center justify-center text-white text-3xl font-black border-2 border-[#D5C3CC]">
-            U
-          </div>
+          <Image
+            src="/logo-undec.png"
+            alt="Logo UNdeC"
+            width={96}
+            height={96}
+            priority
+            className="w-24 h-24 object-contain"
+          />
         </div>
-        <h1 className="text-center text-2xl font-extrabold tracking-tight text-[#4F3A44]">
-          UNdeC
-        </h1>
         <p className="text-center text-xs font-semibold tracking-wider uppercase text-[#826170]">
           Universidad Nacional de Chilecito
         </p>
