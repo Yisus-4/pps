@@ -1,25 +1,28 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  async rewrites() {
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return [
-        {
-          source: "/api/:path*",
-          destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
-        },
-      ];
+const isVercel = Boolean(process.env.VERCEL);
+
+const nextConfig: NextConfig = isVercel
+  ? {
+      output: "export",
+      images: {
+        unoptimized: true,
+      },
     }
-    if (!process.env.VERCEL) {
-      return [
-        {
-          source: "/api/:path*",
-          destination: "http://localhost:8000/api/:path*",
-        },
-      ];
-    }
-    return [];
-  },
-};
+  : {
+      images: {
+        unoptimized: true,
+      },
+      async rewrites() {
+        const backendUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        return [
+          {
+            source: "/api/:path*",
+            destination: `${backendUrl}/api/:path*`,
+          },
+        ];
+      },
+    };
 
 export default nextConfig;
