@@ -12,10 +12,20 @@ import {
 } from "@/types";
 
 const getApiBaseUrl = (): string => {
-  if (typeof window !== "undefined") {
-    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  if (typeof window !== "undefined") {
+    if (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+    ) {
+      return "http://localhost:8000";
+    }
+    // In production (Vercel), use same-origin relative paths (/api/...)
+    return "";
+  }
+  return "http://localhost:8000";
 };
 
 export const getAuthToken = (): string | null => {

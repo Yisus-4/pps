@@ -16,9 +16,8 @@ from app.routers import (
 )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: create tables and seed initial data
+def init_db() -> None:
+    """Create tables, apply schema migrations, and seed initial data."""
     Base.metadata.create_all(bind=engine)
     try:
         with engine.connect() as conn:
@@ -26,13 +25,27 @@ async def lifespan(app: FastAPI):
             if "alumnos" in inspector.get_table_names():
                 columns = [c["name"] for c in inspector.get_columns("alumnos")]
                 if "carga_id" not in columns:
-                    conn.execute(text("ALTER TABLE alumnos ADD COLUMN carga_id INTEGER REFERENCES cargas_historial(id)"))
+                    conn.execute(
+                        text("ALTER TABLE alumnos ADD COLUMN carga_id INTEGER REFERENCES cargas_historial(id)")
+                    )
                     conn.commit()
     except Exception:
         pass
 
     with SessionLocal() as db:
         seed_database(db)
+
+
+try:
+    init_db()
+except Exception:
+    pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create tables and seed initial data
+    init_db()
     yield
     # Shutdown logic if needed
 
@@ -70,9 +83,11 @@ def root():
     }
 
 
+@app.get("/health", tags=["General"])
 @app.get("/api/health", tags=["General"])
 def health_check():
     return {
         "status": "ok",
+        "service": "UNdeC Dashboard API",
         "version": "1.0.0"
     }
