@@ -9,14 +9,24 @@ def _resolve_database_url() -> str:
     # 1. Prioritize Vercel Postgres / Neon or explicit DATABASE_URL environment variables
     env_url = (
         os.environ.get("POSTGRES_URL")
+        or os.environ.get("postgres_URL")
         or os.environ.get("DATABASE_URL")
-        or settings.DATABASE_URL
+        or os.environ.get("STORAGE_URL")
+        or os.environ.get("POSTGRES_PRISMA_URL")
     )
-    if env_url.startswith("postgres://"):
-        env_url = env_url.replace("postgres://", "postgresql://", 1)
+    if not env_url:
+        for k, v in os.environ.items():
+            if k.upper().endswith("_URL") and (v.startswith("postgres://") or v.startswith("postgresql://")):
+                env_url = v
+                break
 
-    if env_url.startswith("postgresql://") or env_url.startswith("postgresql+"):
-        return env_url
+    if env_url:
+        if env_url.startswith("postgres://"):
+            env_url = env_url.replace("postgres://", "postgresql://", 1)
+        if env_url.startswith("postgresql://") or env_url.startswith("postgresql+"):
+            return env_url
+
+    env_url = settings.DATABASE_URL
 
     # 2. Fallback to SQLite (using /tmp/alumnos.db on Vercel serverless)
     if os.environ.get("VERCEL") and env_url == "sqlite:///./alumnos.db":
