@@ -31,7 +31,6 @@ import {
   BookOpen,
   PieChart as PieIcon,
   Layers,
-  Sparkles,
 } from "lucide-react";
 
 export default function DashboardsPage() {
@@ -45,7 +44,7 @@ export default function DashboardsPage() {
 
   // Data & State
   const [stats, setStats] = useState<AlumnosEstadisticas | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Histogram view mode: "detallado" | "agrupado"
@@ -99,6 +98,11 @@ export default function DashboardsPage() {
 
   // 3. Fetch statistics when filter changes
   const fetchEstadisticas = async () => {
+    if (!selectedPropuestaId) {
+      setStats(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -162,22 +166,13 @@ export default function DashboardsPage() {
         {/* Header Title & Actions */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-black text-[#4F3A44] tracking-tight">
-                Dashboards Académicos
-              </h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FAF3DD] text-[#A07A0B] border border-[#E5B115]/30">
-                <Sparkles className="w-3 h-3 mr-1 text-[#E5B115]" />
-                Directores de Carrera
-              </span>
-            </div>
-            <p className="text-sm text-[#6B6166] mt-0.5">
-              Métricas consolidadas, distribución curricular, análisis de cohortes y rendimiento académico.
-            </p>
+            <h1 className="text-2xl font-black text-[#4F3A44] tracking-tight">
+              Dashboards Académicos
+            </h1>
           </div>
 
           <div className="flex items-center gap-3">
-            {stats && stats.alumnos_en_riesgo > 0 && (
+            {selectedPropuestaId && stats && stats.alumnos_en_riesgo > 0 && (
               <div className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs">
                 <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-amber-600" />
                 <span>
@@ -188,7 +183,7 @@ export default function DashboardsPage() {
 
             <button
               onClick={fetchEstadisticas}
-              disabled={isLoading}
+              disabled={isLoading || !selectedPropuestaId}
               className="inline-flex items-center px-3 py-1.5 border border-[#E6E0DD] rounded-lg shadow-2xs text-xs font-semibold text-[#4F3A44] bg-white hover:bg-[#FAF8F7] focus:outline-hidden disabled:opacity-50 transition-colors cursor-pointer"
             >
               <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -237,7 +232,7 @@ export default function DashboardsPage() {
                 disabled={!selectedEscuelaId && !selectedPropuestaId && propuestas.length === 0}
                 className="w-full px-3 py-2 text-xs border border-[#E6E0DD] rounded-lg text-[#1F1A1C] bg-white disabled:bg-gray-50 disabled:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-[#826170]"
               >
-                <option value="">Todas las Carreras de la Escuela</option>
+                <option value="">-- Seleccione una Carrera --</option>
                 {propuestas.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre} {p.plan_codigo ? `(${p.plan_codigo})` : ""}
@@ -254,30 +249,21 @@ export default function DashboardsPage() {
           </div>
         )}
 
-        {/* Context banner */}
-        <div className="bg-[#FAF8F7] border border-[#E6E0DD] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between text-xs text-[#6B6166] gap-2">
-          <div className="flex items-center space-x-2">
-            <span className="font-semibold text-[#4F3A44]">Ámbito del reporte:</span>
-            <span className="font-bold text-[#826170]">{activeEscuelaNombre}</span>
-            {activeCarreraNombre && (
-              <>
-                <span>&bull;</span>
-                <span className="font-bold text-[#1F1A1C]">{activeCarreraNombre}</span>
-              </>
-            )}
-          </div>
-          {stats && (
-            <div className="flex items-center space-x-3 text-[11px]">
-              <span>Inactivos: <strong className="text-gray-700">{stats.inactivos}</strong></span>
-              <span>&bull;</span>
-              <span>Egresados: <strong className="text-emerald-700">{stats.egresados}</strong></span>
-              <span>&bull;</span>
-              <span>Cursantes: <strong className="text-blue-700">{stats.activos}</strong></span>
+        {!selectedPropuestaId ? (
+          <div className="bg-white border border-[#E6E0DD] rounded-xl p-12 text-center shadow-2xs">
+            <div className="w-14 h-14 mx-auto rounded-full bg-[#FAF3DD] flex items-center justify-center text-[#A07A0B] mb-3">
+              <GraduationCap className="w-7 h-7" />
             </div>
-          )}
-        </div>
-
-        {/* Top KPI Cards Grid */}
+            <h3 className="text-base font-bold text-[#4F3A44]">
+              Seleccione una Carrera
+            </h3>
+            <p className="text-xs text-[#6B6166] mt-1.5 max-w-md mx-auto">
+              Seleccione una carrera en el filtro superior para visualizar sus métricas consolidadas, tramos de avance, cohortes y rendimiento académico sin mezclar datos entre planes de estudio.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Top KPI Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Card 1: Total Alumnos */}
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
@@ -567,8 +553,7 @@ export default function DashboardsPage() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#F1E9ED] flex items-center justify-between text-[11px] text-[#6B6166]">
-              <span>* Fuente: Registros académicos de actas y exámenes aprobados</span>
+            <div className="pt-3 border-t border-[#F1E9ED] flex items-center justify-end text-[11px] text-[#6B6166]">
               <span className="font-semibold text-[#826170]">Total: {stats?.total_alumnos || 0} estudiantes</span>
             </div>
           </div>
@@ -641,31 +626,18 @@ export default function DashboardsPage() {
                 })}
               </div>
             </div>
-
-            <div className="pt-3 border-t border-[#F1E9ED] text-[11px] text-[#6B6166] mt-4">
-              <span className="font-semibold text-[#4F3A44]">Clave pedagógica: </span>
-              El tramo 0% evidencia ingresantes o inscriptos que aún no regularizan o aprueban su primera materia.
-            </div>
           </div>
         </div>
 
-        {/* Charts Section 2: Propuestas para Directores (Cohortes & Rendimiento) */}
+        {/* Charts Section 2: Cohortes & Rendimiento */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Chart 3: Retención y Rezago por Cohorte de Ingreso */}
           <div className="lg:col-span-7 bg-white border border-[#E6E0DD] rounded-xl p-5 shadow-2xs flex flex-col justify-between">
             <div>
               <div className="pb-3 border-b border-[#F1E9ED]">
-                <div className="flex items-center space-x-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-blue-100 text-[#1D4ED8]">
-                    Propuesta Directores
-                  </span>
-                  <h2 className="text-base font-black text-[#4F3A44] tracking-tight">
-                    Retención y Rezago por Cohorte de Ingreso
-                  </h2>
-                </div>
-                <p className="text-xs text-[#6B6166] mt-1">
-                  Permite identificar en qué año de ingreso se produce mayor desgranamiento o abandono.
-                </p>
+                <h2 className="text-base font-black text-[#4F3A44] tracking-tight">
+                  Retención y Rezago por Cohorte de Ingreso
+                </h2>
               </div>
 
               <div className="h-80 w-full mt-4">
@@ -743,28 +715,15 @@ export default function DashboardsPage() {
                 )}
               </div>
             </div>
-
-            <div className="pt-3 border-t border-[#F1E9ED] text-[11px] text-[#6B6166] flex items-center justify-between">
-              <span>Barras apiladas proporcionales por año de ingreso</span>
-              <span className="text-[#2563EB] font-semibold">Visualización de cohortes</span>
-            </div>
           </div>
 
           {/* Chart 4: Distribución de Rendimiento Académico (Promedios) */}
           <div className="lg:col-span-5 bg-white border border-[#E6E0DD] rounded-xl p-5 shadow-2xs flex flex-col justify-between">
             <div>
               <div className="pb-3 border-b border-[#F1E9ED]">
-                <div className="flex items-center space-x-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-100 text-[#826170]">
-                    Propuesta Directores
-                  </span>
-                  <h2 className="text-base font-black text-[#4F3A44] tracking-tight">
-                    Rendimiento Académico
-                  </h2>
-                </div>
-                <p className="text-xs text-[#6B6166] mt-1">
-                  Campana de calificaciones para monitoreo de exigencia y retención pedagógica.
-                </p>
+                <h2 className="text-base font-black text-[#4F3A44] tracking-tight">
+                  Rendimiento Académico
+                </h2>
               </div>
 
               <div className="h-80 w-full mt-4">
@@ -831,14 +790,11 @@ export default function DashboardsPage() {
                 )}
               </div>
             </div>
-
-            <div className="pt-3 border-t border-[#F1E9ED] text-[11px] text-[#6B6166] flex items-center justify-between">
-              <span>Alumnos con al menos 1 examen rendido</span>
-              <span className="font-semibold text-[#826170]">Distribución gaussiana</span>
-            </div>
           </div>
         </div>
-      </div>
-    </AppLayout>
+      </>
+    )}
+  </div>
+</AppLayout>
   );
 }

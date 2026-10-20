@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const { user, login, isLoading: authLoading } = useAuth();
@@ -43,12 +43,6 @@ export default function LoginPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleFillDemoAdmin = () => {
-    setEmail("admin@undec.edu.ar");
-    setPassword("admin123");
-    setError(null);
   };
 
   return (
@@ -162,31 +156,6 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-
-          {/* Quick Demo Credentials Assistant */}
-          <div className="mt-6 pt-5 border-t border-[#E6E0DD]">
-            <div className="bg-[#FAF8F7] border border-[#E6E0DD] rounded-xl p-3.5 text-xs text-[#6B6166]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-bold text-[#4F3A44] flex items-center">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#E5B115] mr-1.5" />
-                  Credenciales de Prueba:
-                </span>
-                <button
-                  type="button"
-                  onClick={handleFillDemoAdmin}
-                  className="text-[11px] font-semibold text-[#826170] hover:text-[#4F3A44] underline"
-                >
-                  Autocompletar
-                </button>
-              </div>
-              <p className="font-mono text-[#1F1A1C]">
-                admin@undec.edu.ar / admin123
-              </p>
-              <p className="mt-1 text-[11px] text-[#6B6166]">
-                Acceso completo como Administrador Central.
-              </p>
-            </div>
-          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-[#6B6166]">
