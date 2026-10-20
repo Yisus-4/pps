@@ -3,7 +3,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'frontend-falling-pathway-7874'
+app = 'dashboard-alumnos'
 primary_region = 'gru'
 
 [env]
@@ -20,7 +20,7 @@ primary_region = 'gru'
   processes = ['app']
 
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 1024
+  memory_mb = 512
