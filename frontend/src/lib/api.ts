@@ -98,7 +98,7 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    let errorDetail = "Ocurrió un error en la solicitud";
+    let errorDetail = `Ocurrió un error en la solicitud (HTTP ${res.status})`;
     let errorData = null;
     try {
       errorData = await res.json();
@@ -110,6 +110,10 @@ async function request<T>(
             .map((item: { msg?: string }) => item.msg || JSON.stringify(item))
             .join(", ");
         }
+      } else if (typeof errorData?.message === "string") {
+        errorDetail = errorData.message;
+      } else if (typeof errorData?.error === "string") {
+        errorDetail = errorData.error;
       }
     } catch {
       // not JSON

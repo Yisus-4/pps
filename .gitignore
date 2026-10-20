@@ -10,6 +10,7 @@ venv/
 backend/venv/
 *.db
 !backend/alumnos.db
+!frontend/api/_backend/alumnos.db
 *.sqlite
 *.sqlite3
 .env
