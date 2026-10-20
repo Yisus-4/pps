@@ -1,15 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "cd frontend && npm install",
-  "buildCommand": "cd frontend && npm run build",
-  "outputDirectory": "frontend/out",
-  "cleanUrls": true,
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "backend/**"
-    }
-  },
+  "framework": "nextjs",
+  "installCommand": "npm --prefix frontend install && ln -sfn frontend/node_modules node_modules",
+  "buildCommand": "npm --prefix frontend run build",
+  "outputDirectory": "frontend/.next",
   "rewrites": [
     {
       "source": "/api/:path*",
