@@ -2,13 +2,17 @@ import os
 import shutil
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 from app.config import settings
 
 
 def _resolve_database_url() -> str:
     # 1. Prioritize Vercel Postgres / Neon or explicit DATABASE_URL environment variables
+    # Direct (non-pooling) is prioritized for reliable DDL and serverless execution
     env_url = (
-        os.environ.get("POSTGRES_URL")
+        os.environ.get("POSTGRES_URL_NON_POOLING")
+        or os.environ.get("postgres_URL_NON_POOLING")
+        or os.environ.get("POSTGRES_URL")
         or os.environ.get("postgres_URL")
         or os.environ.get("DATABASE_URL")
         or os.environ.get("STORAGE_URL")
@@ -22,9 +26,10 @@ def _resolve_database_url() -> str:
 
     if env_url:
         if env_url.startswith("postgres://"):
-            env_url = env_url.replace("postgres://", "postgresql://", 1)
-        if env_url.startswith("postgresql://") or env_url.startswith("postgresql+"):
-            return env_url
+            env_url = env_url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif env_url.startswith("postgresql://") and not env_url.startswith("postgresql+"):
+            env_url = env_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return env_url
 
     env_url = settings.DATABASE_URL
 
@@ -36,6 +41,7 @@ def _resolve_database_url() -> str:
             candidates = [
                 os.path.normpath(os.path.join(base_dir, "..", "alumnos.db")),
                 os.path.normpath(os.path.join(base_dir, "..", "..", "alumnos.db")),
+                os.path.normpath(os.path.join(base_dir, "..", "..", "backend", "alumnos.db")),
             ]
             for candidate in candidates:
                 if os.path.exists(candidate):
@@ -59,7 +65,8 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine = create_engine(
         DATABASE_URL,
-        pool_pre_ping=True,
+        poolclass=NullPool,
+        connect_args={"connect_timeout": 15},
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

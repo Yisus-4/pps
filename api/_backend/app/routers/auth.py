@@ -40,7 +40,32 @@ async def login(
             detail="Debe proporcionar credenciales (email y contraseña)"
         )
 
-    user = authenticate_user(db, email=str(email).strip(), password=str(password))
+    try:
+        user = authenticate_user(db, email=str(email).strip(), password=str(password))
+    except Exception as db_err:
+        # Self-healing attempt: tables or initial admin may need initialization in this database
+        try:
+            from app.main import init_db
+            init_db()
+            user = authenticate_user(db, email=str(email).strip(), password=str(password))
+        except Exception as retry_err:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error en la base de datos: {str(retry_err)}"
+            )
+
+    if not user:
+        # Check if any admin exists; if not, attempt seeding
+        try:
+            from app.models.user import UserRole
+            from app.seed import seed_database
+            admin_check = db.query(User).filter(User.role == UserRole.ADMIN.value).first()
+            if not admin_check:
+                seed_database(db)
+                user = authenticate_user(db, email=str(email).strip(), password=str(password))
+        except Exception:
+            pass
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
