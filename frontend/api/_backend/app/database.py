@@ -6,8 +6,20 @@ from app.config import settings
 
 
 def _resolve_database_url() -> str:
-    db_url = settings.DATABASE_URL
-    if os.environ.get("VERCEL") and db_url == "sqlite:///./alumnos.db":
+    # 1. Prioritize Vercel Postgres / Neon or explicit DATABASE_URL environment variables
+    env_url = (
+        os.environ.get("POSTGRES_URL")
+        or os.environ.get("DATABASE_URL")
+        or settings.DATABASE_URL
+    )
+    if env_url.startswith("postgres://"):
+        env_url = env_url.replace("postgres://", "postgresql://", 1)
+
+    if env_url.startswith("postgresql://") or env_url.startswith("postgresql+"):
+        return env_url
+
+    # 2. Fallback to SQLite (using /tmp/alumnos.db on Vercel serverless)
+    if os.environ.get("VERCEL") and env_url == "sqlite:///./alumnos.db":
         tmp_db_path = "/tmp/alumnos.db"
         if not os.path.exists(tmp_db_path):
             base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,16 +36,22 @@ def _resolve_database_url() -> str:
                         pass
                     break
         return f"sqlite:///{tmp_db_path}"
-    return db_url
+    return env_url
 
 
 DATABASE_URL = _resolve_database_url()
 
-connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+    )
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
