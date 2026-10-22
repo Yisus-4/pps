@@ -68,6 +68,8 @@ export default function AlumnosPage() {
   const [activos, setActivos] = useState<number>(0);
   const [egresados, setEgresados] = useState(0);
   const [promedioHistorico, setPromedioHistorico] = useState<number | null>(null);
+  const [promedioGeneralConAplazos, setPromedioGeneralConAplazos] = useState<number | null>(null);
+  const [promedioGeneralSinAplazos, setPromedioGeneralSinAplazos] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAlumno, setSelectedAlumno] = useState<Alumno | null>(null);
@@ -213,6 +215,8 @@ export default function AlumnosPage() {
       setActivos(res.activos ?? 0);
       setEgresados(res.egresados ?? 0);
       setPromedioHistorico(res.promedio_historico ?? null);
+      setPromedioGeneralConAplazos(res.promedio_general_con_aplazos ?? null);
+      setPromedioGeneralSinAplazos(res.promedio_general_sin_aplazos ?? null);
       setError(null);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -247,6 +251,8 @@ export default function AlumnosPage() {
           setActivos(res.activos ?? 0);
           setEgresados(res.egresados ?? 0);
           setPromedioHistorico(res.promedio_historico ?? null);
+          setPromedioGeneralConAplazos(res.promedio_general_con_aplazos ?? null);
+          setPromedioGeneralSinAplazos(res.promedio_general_sin_aplazos ?? null);
           setError(null);
         }
       } catch (err: unknown) {
@@ -542,8 +548,8 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* KPI Cards (Métricas: Alumnos, Cursantes, Egresados y opcionalmente Promedio Histórico de Egresados) */}
-        <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-4" : "sm:grid-cols-3"} gap-4`}>
+        {/* KPI Cards (Métricas: Alumnos, Cursantes, Egresados y Promedios con y sin aplazos al seleccionar carrera) */}
+        <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-3"} gap-4`}>
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
@@ -569,17 +575,37 @@ export default function AlumnosPage() {
           </div>
 
           {selectedPropuestaId !== null && (
-            <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
-              <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                Promedio Histórico (Egresados)
-              </p>
-              <p className="text-2xl font-black text-[#4F3A44] mt-1">
-                {promedioHistorico !== null && promedioHistorico !== undefined
-                  ? promedioHistorico.toFixed(2)
-                  : "-"}
-              </p>
-            </div>
+            <>
+              <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
+                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+                  Prom. General c/ Aplazos
+                </p>
+                <p className="text-2xl font-black text-[#4F3A44] mt-1">
+                  {promedioGeneralConAplazos !== null && promedioGeneralConAplazos !== undefined
+                    ? promedioGeneralConAplazos.toFixed(2)
+                    : "-"}
+                </p>
+                <p className="text-[11px] text-[#6B6166] mt-1">
+                  Egresados: <strong className="text-[#4F3A44]">{promedioHistorico !== null && promedioHistorico !== undefined ? promedioHistorico.toFixed(2) : "-"}</strong>
+                </p>
+              </div>
+
+              <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-[#E5B115]" />
+                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+                  Prom. General s/ Aplazos
+                </p>
+                <p className="text-2xl font-black text-[#A07A0B] mt-1">
+                  {promedioGeneralSinAplazos !== null && promedioGeneralSinAplazos !== undefined
+                    ? promedioGeneralSinAplazos.toFixed(2)
+                    : "-"}
+                </p>
+                <p className="text-[11px] text-[#6B6166] mt-1">
+                  Solo materias aprobadas
+                </p>
+              </div>
+            </>
           )}
         </div>
 

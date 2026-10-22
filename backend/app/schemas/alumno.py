@@ -42,6 +42,8 @@ class AlumnosPaginated(BaseModel):
     activos: int = 0
     egresados: int = 0
     promedio_historico: Optional[float] = None
+    promedio_general_con_aplazos: Optional[float] = None
+    promedio_general_sin_aplazos: Optional[float] = None
 
 
 class HistogramaMateriasItem(BaseModel):
@@ -75,6 +77,8 @@ class AlumnosEstadisticasOut(BaseModel):
     egresados: int
     inactivos: int
     promedio_historico: Optional[float] = None
+    promedio_general_con_aplazos: Optional[float] = None
+    promedio_general_sin_aplazos: Optional[float] = None
     avance_promedio_general: float
     avance_promedio_cursantes: float
     histograma_materias: List[HistogramaMateriasItem]

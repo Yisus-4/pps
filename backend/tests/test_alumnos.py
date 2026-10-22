@@ -36,6 +36,8 @@ def test_query_alumnos_pagination(client, admin_headers):
     assert data["activos"] == 67
     assert data["egresados"] == 5
     assert data["promedio_historico"] is None
+    assert data["promedio_general_con_aplazos"] is None
+    assert data["promedio_general_sin_aplazos"] is None
 
 
 def test_search_alumnos_by_name_and_documento(client, admin_headers):
@@ -98,6 +100,8 @@ def test_activos_and_promedio_historico_and_sorting(client, admin_headers, db_se
     assert data["activos"] == 67
     assert data["egresados"] == 5
     assert data["promedio_historico"] == 8.01
+    assert data["promedio_general_con_aplazos"] == 5.69
+    assert data["promedio_general_sin_aplazos"] == 7.16
 
     # Verify that sorting by any field does NOT change total, activos, or promedio_historico
     sort_fields = [
@@ -414,6 +418,8 @@ def test_alumnos_estadisticas_endpoint(client, admin_headers, ingenieria_headers
     assert data["egresados"] == 5
     assert data["inactivos"] == 203
     assert data["promedio_historico"] == 8.01
+    assert data["promedio_general_con_aplazos"] == 5.69
+    assert data["promedio_general_sin_aplazos"] == 7.16
     assert data["avance_promedio_general"] > 0
     assert data["avance_promedio_cursantes"] > 0
     assert data["alumnos_en_riesgo"] > 0

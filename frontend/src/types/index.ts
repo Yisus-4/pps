@@ -86,6 +86,8 @@ export interface AlumnosPaginatedResponse {
   activos?: number;
   egresados?: number;
   promedio_historico?: number | null;
+  promedio_general_con_aplazos?: number | null;
+  promedio_general_sin_aplazos?: number | null;
 }
 
 export interface UploadResponse {
@@ -143,6 +145,8 @@ export interface AlumnosEstadisticas {
   egresados: number;
   inactivos: number;
   promedio_historico: number | null;
+  promedio_general_con_aplazos?: number | null;
+  promedio_general_sin_aplazos?: number | null;
   avance_promedio_general: number;
   avance_promedio_cursantes: number;
   histograma_materias: HistogramaMateriasItem[];

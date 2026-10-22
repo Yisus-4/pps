@@ -319,7 +319,7 @@ export default function DashboardsPage() {
         ) : (
           <>
             {/* Top KPI Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {/* Card 1: Total Alumnos */}
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
@@ -426,26 +426,49 @@ export default function DashboardsPage() {
             </div>
           </div>
 
-          {/* Card 5: Promedio Histórico (Egresados) */}
+          {/* Card 5: Promedio General con Aplazos */}
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
             <div>
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                  Promedio Egresados
+                  Prom. c/ Aplazos
                 </p>
                 <div className="p-1.5 rounded-lg bg-[#FAF8F7] text-[#4F3A44]">
                   <BookOpen className="w-4 h-4" />
                 </div>
               </div>
               <p className="text-3xl font-black text-[#4F3A44] mt-2">
-                {stats?.promedio_historico !== null && stats?.promedio_historico !== undefined
-                  ? stats.promedio_historico.toFixed(2)
+                {stats?.promedio_general_con_aplazos !== null && stats?.promedio_general_con_aplazos !== undefined
+                  ? stats.promedio_general_con_aplazos.toFixed(2)
                   : "-"}
               </p>
             </div>
             <p className="text-[11px] text-[#6B6166] mt-3">
-              Promedio histórico con aplazos
+              Egresados: <strong className="text-[#4F3A44]">{stats?.promedio_historico !== null && stats?.promedio_historico !== undefined ? stats.promedio_historico.toFixed(2) : "-"}</strong>
+            </p>
+          </div>
+
+          {/* Card 6: Promedio General sin Aplazos */}
+          <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#E5B115]" />
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+                  Prom. s/ Aplazos
+                </p>
+                <div className="p-1.5 rounded-lg bg-[#FAF8F7] text-[#A07A0B]">
+                  <Award className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-3xl font-black text-[#A07A0B] mt-2">
+                {stats?.promedio_general_sin_aplazos !== null && stats?.promedio_general_sin_aplazos !== undefined
+                  ? stats.promedio_general_sin_aplazos.toFixed(2)
+                  : "-"}
+              </p>
+            </div>
+            <p className="text-[11px] text-[#6B6166] mt-3">
+              Materias aprobadas
             </p>
           </div>
         </div>
@@ -775,10 +798,25 @@ export default function DashboardsPage() {
           {/* Chart 4: Distribución de Rendimiento Académico (Promedios) */}
           <div className="lg:col-span-5 bg-white border border-[#E6E0DD] rounded-xl p-5 shadow-2xs flex flex-col justify-between">
             <div>
-              <div className="pb-3 border-b border-[#F1E9ED]">
-                <h2 className="text-base font-black text-[#4F3A44] tracking-tight">
-                  Rendimiento Académico
-                </h2>
+              <div className="pb-3 border-b border-[#F1E9ED] flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-black text-[#4F3A44] tracking-tight">
+                    Rendimiento Académico
+                  </h2>
+                  <p className="text-xs text-[#6B6166] mt-0.5">
+                    Campana de calificaciones para monitoreo pedagógico
+                  </p>
+                </div>
+                {stats && (
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span className="px-2 py-0.5 rounded-md bg-[#F1E9ED] border border-[#D5C3CC] text-[#4F3A44] font-semibold">
+                      c/ aplazos: <strong className="font-bold">{stats.promedio_general_con_aplazos?.toFixed(2) ?? "-"}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-900 font-semibold">
+                      s/ aplazos: <strong className="font-bold">{stats.promedio_general_sin_aplazos?.toFixed(2) ?? "-"}</strong>
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="h-80 w-full mt-4">

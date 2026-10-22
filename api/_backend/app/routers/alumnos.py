@@ -205,13 +205,12 @@ def get_alumnos(
         if not is_egresado and is_alumno_activo(exam_str, anio_ing, f_ing):
             activos += 1
 
-    # Calculate promedio_historico
+    # Calculate promedio_historico, promedio_general_con_aplazos, and promedio_general_sin_aplazos
     # When propuesta_id is specified:
-    #   Compute the average of promedio_con_aplazos for all egresados of that propuesta_id in the database:
-    #   Alumno.propuesta_id == propuesta_id, Alumno.total_actividades > 0, Alumno.actividades_aprobadas >= Alumno.total_actividades, and Alumno.promedio_con_aplazos > 0. Round to 2 decimal places.
-    # When propuesta_id is None:
-    #   Set promedio_historico = None
+    #   Compute the averages for that propuesta_id
     promedio_historico: Optional[float] = None
+    promedio_general_con_aplazos: Optional[float] = None
+    promedio_general_sin_aplazos: Optional[float] = None
     if propuesta_id is not None:
         avg_prom = db.query(func.avg(Alumno.promedio_con_aplazos)).filter(
             Alumno.propuesta_id == propuesta_id,
@@ -221,6 +220,20 @@ def get_alumnos(
         ).scalar()
         if avg_prom is not None:
             promedio_historico = round(float(avg_prom), 2)
+
+        avg_gen_con = db.query(func.avg(Alumno.promedio_con_aplazos)).filter(
+            Alumno.propuesta_id == propuesta_id,
+            Alumno.promedio_con_aplazos > 0
+        ).scalar()
+        if avg_gen_con is not None:
+            promedio_general_con_aplazos = round(float(avg_gen_con), 2)
+
+        avg_gen_sin = db.query(func.avg(Alumno.promedio_sin_aplazos)).filter(
+            Alumno.propuesta_id == propuesta_id,
+            Alumno.promedio_sin_aplazos > 0
+        ).scalar()
+        if avg_gen_sin is not None:
+            promedio_general_sin_aplazos = round(float(avg_gen_sin), 2)
 
     # Pagination
     total_pages = math.ceil(total / limit) if total > 0 else 0
@@ -311,7 +324,9 @@ def get_alumnos(
         total_pages=total_pages,
         activos=activos,
         egresados=egresados,
-        promedio_historico=promedio_historico
+        promedio_historico=promedio_historico,
+        promedio_general_con_aplazos=promedio_general_con_aplazos,
+        promedio_general_sin_aplazos=promedio_general_sin_aplazos
     )
 
 
@@ -333,6 +348,8 @@ def get_alumnos_estadisticas(
                 egresados=0,
                 inactivos=0,
                 promedio_historico=None,
+                promedio_general_con_aplazos=None,
+                promedio_general_sin_aplazos=None,
                 avance_promedio_general=0.0,
                 avance_promedio_cursantes=0.0,
                 histograma_materias=[],
@@ -368,6 +385,7 @@ def get_alumnos_estadisticas(
         Alumno.actividades_aprobadas,
         Alumno.total_actividades,
         Alumno.promedio_con_aplazos,
+        Alumno.promedio_sin_aplazos,
         Alumno.anio_ingreso,
         Alumno.fecha_ingreso,
         Alumno.ultimo_examen
@@ -388,6 +406,8 @@ def get_alumnos_estadisticas(
     count_avance_cursantes = 0
 
     promedios_egresados = []
+    promedios_general_con_aplazos = []
+    promedios_general_sin_aplazos = []
 
     materias_freq = {}
     max_materias = 0
@@ -414,11 +434,16 @@ def get_alumnos_estadisticas(
 
     alumnos_en_riesgo = 0
 
-    for a_id, aprobadas_val, total_act_val, prom_aplazos, anio_ing, f_ing, ult_exam in rows:
+    for a_id, aprobadas_val, total_act_val, prom_aplazos, prom_sin_aplazos, anio_ing, f_ing, ult_exam in rows:
         aprobadas = aprobadas_val or 0
         total_act = total_act_val or 0
         is_egresado = total_act > 0 and aprobadas >= total_act
         is_activo = False
+
+        if prom_aplazos is not None and prom_aplazos > 0:
+            promedios_general_con_aplazos.append(prom_aplazos)
+        if prom_sin_aplazos is not None and prom_sin_aplazos > 0:
+            promedios_general_sin_aplazos.append(prom_sin_aplazos)
 
         if is_egresado:
             egresados_count += 1
@@ -495,6 +520,14 @@ def get_alumnos_estadisticas(
     if promedios_egresados:
         promedio_historico = round(sum(promedios_egresados) / len(promedios_egresados), 2)
 
+    promedio_general_con_aplazos: Optional[float] = None
+    if promedios_general_con_aplazos:
+        promedio_general_con_aplazos = round(sum(promedios_general_con_aplazos) / len(promedios_general_con_aplazos), 2)
+
+    promedio_general_sin_aplazos: Optional[float] = None
+    if promedios_general_sin_aplazos:
+        promedio_general_sin_aplazos = round(sum(promedios_general_sin_aplazos) / len(promedios_general_sin_aplazos), 2)
+
     avance_promedio_general = round(sum_avance_general / count_avance_general, 1) if count_avance_general > 0 else 0.0
     avance_promedio_cursantes = round(sum_avance_cursantes / count_avance_cursantes, 1) if count_avance_cursantes > 0 else 0.0
 
@@ -547,6 +580,8 @@ def get_alumnos_estadisticas(
         egresados=egresados_count,
         inactivos=inactivos_count,
         promedio_historico=promedio_historico,
+        promedio_general_con_aplazos=promedio_general_con_aplazos,
+        promedio_general_sin_aplazos=promedio_general_sin_aplazos,
         avance_promedio_general=avance_promedio_general,
         avance_promedio_cursantes=avance_promedio_cursantes,
         histograma_materias=histograma_materias,
