@@ -87,6 +87,7 @@ def get_alumnos(
     estado_inscripcion: Optional[str] = Query(None, description="Filtrar por estado de inscripción"),
     condicion: Optional[str] = Query(None, description="Filtrar por 'activos', 'inactivos', 'recibidos'"),
     en_riesgo: Optional[bool] = Query(None, description="Filtrar alumnos en riesgo: duracion >= 3 años y avance < 25%"),
+    anios_ingreso: Optional[str] = Query(None, description="Años de ingreso para filtrar separados por coma, ej: '2020,2021,2022'"),
     sort_by: Optional[str] = Query("apellido_nombre", description="Campo por el cual ordenar"),
     sort_dir: Optional[str] = Query("asc", description="Dirección del ordenamiento: 'asc' o 'desc'"),
     page: int = Query(1, ge=1, description="Número de página"),
@@ -100,7 +101,7 @@ def get_alumnos(
     if current_user.role != UserRole.ADMIN.value:
         if current_user.escuela_id is None:
             # User has no assigned escuela, return empty
-            return AlumnosPaginated(items=[], total=0, page=page, limit=limit, total_pages=0, activos=0, egresados=0, promedio_historico=None)
+            return AlumnosPaginated(items=[], total=0, page=page, limit=limit, total_pages=0, activos=0, egresados=0, promedio_historico=None, anios_disponibles=[])
         query = query.filter(PropuestaFormativa.escuela_id == current_user.escuela_id)
     else:
         # Admin can optionally filter by escuela_id
@@ -125,6 +126,28 @@ def get_alumnos(
     # Filter by estado_inscripcion
     if estado_inscripcion:
         query = query.filter(Alumno.estado_inscripcion == estado_inscripcion)
+
+    # Available entry years for filter (from the selected escuela/carrera scope)
+    scope_query = db.query(Alumno.anio_ingreso).join(PropuestaFormativa, Alumno.propuesta_id == PropuestaFormativa.id)
+    if current_user.role != UserRole.ADMIN.value:
+        scope_query = scope_query.filter(PropuestaFormativa.escuela_id == current_user.escuela_id)
+    elif escuela_id is not None:
+        scope_query = scope_query.filter(PropuestaFormativa.escuela_id == escuela_id)
+    if propuesta_id is not None:
+        scope_query = scope_query.filter(Alumno.propuesta_id == propuesta_id)
+
+    anios_rows = scope_query.filter(Alumno.anio_ingreso.isnot(None), Alumno.anio_ingreso > 1900).distinct().all()
+    anios_disponibles = sorted([r[0] for r in anios_rows if r[0] is not None], reverse=True)
+
+    # Filter by anios_ingreso (multi-select list of years)
+    if anios_ingreso:
+        parsed_years = []
+        for part in anios_ingreso.split(","):
+            p = part.strip()
+            if p.isdigit():
+                parsed_years.append(int(p))
+        if parsed_years:
+            query = query.filter(Alumno.anio_ingreso.in_(parsed_years))
 
     # Date boundaries for activos (within the last 12 months / 365 days)
     now = datetime.now()
@@ -326,7 +349,8 @@ def get_alumnos(
         egresados=egresados,
         promedio_historico=promedio_historico,
         promedio_general_con_aplazos=promedio_general_con_aplazos,
-        promedio_general_sin_aplazos=promedio_general_sin_aplazos
+        promedio_general_sin_aplazos=promedio_general_sin_aplazos,
+        anios_disponibles=anios_disponibles
     )
 
 

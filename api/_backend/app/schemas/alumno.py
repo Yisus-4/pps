@@ -44,6 +44,7 @@ class AlumnosPaginated(BaseModel):
     promedio_historico: Optional[float] = None
     promedio_general_con_aplazos: Optional[float] = None
     promedio_general_sin_aplazos: Optional[float] = None
+    anios_disponibles: List[int] = []
 
 
 class HistogramaMateriasItem(BaseModel):

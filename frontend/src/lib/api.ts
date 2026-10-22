@@ -160,6 +160,7 @@ export interface AlumnosQueryParams {
   estado_inscripcion?: string;
   condicion?: string;
   en_riesgo?: boolean;
+  anios_ingreso?: string;
   sort_by?: string;
   sort_dir?: "asc" | "desc";
   page?: number;
@@ -175,6 +176,7 @@ export const alumnosApi = {
     if (params.estado_inscripcion) searchParams.append("estado_inscripcion", params.estado_inscripcion);
     if (params.condicion) searchParams.append("condicion", params.condicion);
     if (params.en_riesgo !== undefined) searchParams.append("en_riesgo", params.en_riesgo.toString());
+    if (params.anios_ingreso) searchParams.append("anios_ingreso", params.anios_ingreso);
     if (params.sort_by) searchParams.append("sort_by", params.sort_by);
     if (params.sort_dir) searchParams.append("sort_dir", params.sort_dir);
     if (params.page) searchParams.append("page", params.page.toString());

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/context/AuthContext";
 import { alumnosApi, escuelasApi } from "@/lib/api";
@@ -17,6 +17,7 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -26,26 +27,16 @@ import {
   Award,
   User,
   AlertTriangle,
+  Calendar,
+  Info,
   X,
 } from "lucide-react";
 
 export default function AlumnosPage() {
   const { user, isAdmin } = useAuth();
 
-  // View mode: 'compact' (fits screen without horizontal scroll), 'full' (all columns)
-  const [viewMode, setViewMode] = useState<"compact" | "full">(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("undec_alumnos_view_mode") as "compact" | "full" | null;
-        if (saved && (saved === "compact" || saved === "full")) {
-          return saved;
-        }
-      } catch {
-        // Ignore
-      }
-    }
-    return "compact";
-  });
+  // View mode: 'compact' por defecto (protegido); 'full' (tabla completa secreta con documento del alumno)
+  const [viewMode, setViewMode] = useState<"compact" | "full">("compact");
 
   // Filter state
   const [escuelas, setEscuelas] = useState<Escuela[]>([]);
@@ -55,6 +46,10 @@ export default function AlumnosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [condicion, setCondicion] = useState<string>("");
   const [enRiesgo, setEnRiesgo] = useState<boolean>(false);
+  const [selectedAnios, setSelectedAnios] = useState<number[]>([]);
+  const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
+  const [isAnioDropdownOpen, setIsAnioDropdownOpen] = useState(false);
+  const anioDropdownRef = useRef<HTMLDivElement>(null);
   const [initialPropuestaIdFromUrl, setInitialPropuestaIdFromUrl] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<string>("apellido_nombre");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -73,14 +68,31 @@ export default function AlumnosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAlumno, setSelectedAlumno] = useState<Alumno | null>(null);
+  const [showPrivateData, setShowPrivateData] = useState(false);
+
+  // Reset private data visibility when selected student changes
+  useEffect(() => {
+    setShowPrivateData(false);
+  }, [selectedAlumno?.id]);
+
+  // Close entry year dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        anioDropdownRef.current &&
+        !anioDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsAnioDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const changeViewMode = (mode: "compact" | "full") => {
     setViewMode(mode);
-    try {
-      localStorage.setItem("undec_alumnos_view_mode", mode);
-    } catch {
-      // Ignore
-    }
   };
 
   // Initialize schools
@@ -204,6 +216,7 @@ export default function AlumnosPage() {
         search: searchTerm,
         condicion: condicion || undefined,
         en_riesgo: enRiesgo ? true : undefined,
+        anios_ingreso: selectedAnios.length > 0 ? selectedAnios.join(",") : undefined,
         sort_by: sortBy,
         sort_dir: sortDir,
         page,
@@ -217,6 +230,9 @@ export default function AlumnosPage() {
       setPromedioHistorico(res.promedio_historico ?? null);
       setPromedioGeneralConAplazos(res.promedio_general_con_aplazos ?? null);
       setPromedioGeneralSinAplazos(res.promedio_general_sin_aplazos ?? null);
+      if (res.anios_disponibles) {
+        setAniosDisponibles(res.anios_disponibles);
+      }
       setError(null);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -227,7 +243,7 @@ export default function AlumnosPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, enRiesgo, sortBy, sortDir, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, enRiesgo, selectedAnios, sortBy, sortDir, page, limit]);
 
   useEffect(() => {
     let ignore = false;
@@ -239,6 +255,7 @@ export default function AlumnosPage() {
           search: searchTerm,
           condicion: condicion || undefined,
           en_riesgo: enRiesgo ? true : undefined,
+          anios_ingreso: selectedAnios.length > 0 ? selectedAnios.join(",") : undefined,
           sort_by: sortBy,
           sort_dir: sortDir,
           page,
@@ -253,6 +270,9 @@ export default function AlumnosPage() {
           setPromedioHistorico(res.promedio_historico ?? null);
           setPromedioGeneralConAplazos(res.promedio_general_con_aplazos ?? null);
           setPromedioGeneralSinAplazos(res.promedio_general_sin_aplazos ?? null);
+          if (res.anios_disponibles) {
+            setAniosDisponibles(res.anios_disponibles);
+          }
           setError(null);
         }
       } catch (err: unknown) {
@@ -274,7 +294,7 @@ export default function AlumnosPage() {
     return () => {
       ignore = true;
     };
-  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, enRiesgo, sortBy, sortDir, page, limit]);
+  }, [selectedEscuelaId, selectedPropuestaId, searchTerm, condicion, enRiesgo, selectedAnios, sortBy, sortDir, page, limit]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -491,6 +511,16 @@ export default function AlumnosPage() {
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#F1E9ED] text-[#826170] border border-[#D5C3CC]">
                 {total} Registrados
               </span>
+              {/* Botón discreto sin hover para alternar a la tabla completa */}
+              <button
+                type="button"
+                onClick={() => setViewMode((prev) => (prev === "compact" ? "full" : "compact"))}
+                className="text-gray-400 cursor-default select-none focus:outline-hidden p-0.5"
+                aria-label="Información"
+                tabIndex={-1}
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
             </div>
             <p className="text-sm text-[#6B6166] mt-0.5">
               Visualización y seguimiento del padrón académico de la Universidad Nacional de Chilecito.
@@ -498,34 +528,46 @@ export default function AlumnosPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* View Switcher */}
+            {/* View Switcher: La tabla completa está oculta; en modo compacto solo se ve 'Compacta' y el gatillo discreto */}
             <div className="flex items-center bg-[#F1E9ED] p-0.5 rounded-lg border border-[#D5C3CC]">
-              <button
-                type="button"
-                onClick={() => changeViewMode("compact")}
-                className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                  viewMode === "compact"
-                    ? "bg-white text-[#4F3A44] shadow-2xs font-bold"
-                    : "text-[#6B6166] hover:text-[#1F1A1C]"
-                }`}
-                title="Vista compacta: Todos los campos ajustados a pantalla sin desplazamiento horizontal"
-              >
-                <List className="w-3.5 h-3.5 mr-1" />
-                <span>Compacta</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => changeViewMode("full")}
-                className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                  viewMode === "full"
-                    ? "bg-white text-[#4F3A44] shadow-2xs font-bold"
-                    : "text-[#6B6166] hover:text-[#1F1A1C]"
-                }`}
-                title="Vista completa: Tabla extendida con todas las columnas"
-              >
-                <TableIcon className="w-3.5 h-3.5 mr-1" />
-                <span>Completa</span>
-              </button>
+              {viewMode === "full" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => changeViewMode("compact")}
+                    className="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-semibold text-[#6B6166] hover:text-[#1F1A1C] cursor-pointer transition-colors"
+                    title="Volver a vista compacta"
+                  >
+                    <List className="w-3.5 h-3.5 mr-1" />
+                    <span>Compacta</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => changeViewMode("compact")}
+                    className="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-bold bg-white text-[#4F3A44] shadow-2xs cursor-pointer"
+                    title="Haga clic para volver a ocultar"
+                  >
+                    <TableIcon className="w-3.5 h-3.5 mr-1" />
+                    <span>Completa</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-bold bg-white text-[#4F3A44] shadow-2xs select-none">
+                    <List className="w-3.5 h-3.5 mr-1" />
+                    <span>Compacta</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("full")}
+                    className="px-1 text-gray-400 cursor-default select-none focus:outline-hidden"
+                    aria-label="Vista"
+                    tabIndex={-1}
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
             </div>
 
             <button
@@ -743,6 +785,103 @@ export default function AlumnosPage() {
                   <span>En Riesgo (≥3 años y &lt;25% avance)</span>
                 </button>
               </div>
+
+              {/* Separador vertical */}
+              <div className="h-4 w-px bg-[#E6E0DD] mx-1 hidden sm:block" />
+
+              {/* Filtro Multi-selección: Año de Ingreso */}
+              <div className="relative inline-block" ref={anioDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsAnioDropdownOpen((prev) => !prev)}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                    selectedAnios.length > 0
+                      ? "bg-[#826170] text-white border-[#826170] shadow-2xs"
+                      : "bg-[#F1E9ED] text-[#4F3A44] border-transparent hover:bg-[#E6DEE2]"
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                  <span>Año de Ingreso</span>
+                  {selectedAnios.length > 0 ? (
+                    <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] bg-white/25 text-white font-bold">
+                      {selectedAnios.length}
+                    </span>
+                  ) : (
+                    <span className="ml-1 text-[11px] opacity-70">(Todos)</span>
+                  )}
+                  <ChevronDown className={`w-3 h-3 ml-1.5 transition-transform ${isAnioDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {isAnioDropdownOpen && (
+                  <div className="absolute left-0 mt-1.5 w-56 bg-white rounded-xl shadow-xl border border-[#E6E0DD] z-30 p-2.5 text-xs animate-in fade-in zoom-in-95 duration-100">
+                    <div className="flex items-center justify-between pb-2 mb-1.5 border-b border-[#E6E0DD] px-1">
+                      <span className="font-bold text-[#4F3A44] text-[11px] uppercase tracking-wider">
+                        Años de Ingreso
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        {selectedAnios.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAnios([]);
+                              setPage(1);
+                            }}
+                            className="text-[11px] font-semibold text-[#826170] hover:underline cursor-pointer"
+                          >
+                            Limpiar
+                          </button>
+                        )}
+                        {aniosDisponibles.length > 0 && selectedAnios.length < aniosDisponibles.length && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAnios([...aniosDisponibles]);
+                              setPage(1);
+                            }}
+                            className="text-[11px] font-semibold text-[#826170] hover:underline cursor-pointer"
+                          >
+                            Todos
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="max-h-52 overflow-y-auto space-y-0.5 pr-0.5">
+                      {aniosDisponibles.length === 0 ? (
+                        <div className="py-3 text-center text-[#6B6166] text-xs">
+                          Sin años registrados
+                        </div>
+                      ) : (
+                        aniosDisponibles.map((yr) => {
+                          const isChecked = selectedAnios.includes(yr);
+                          return (
+                            <label
+                              key={yr}
+                              className="flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-[#F1E9ED] cursor-pointer select-none text-[#1F1A1C]"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  setSelectedAnios((prev) => {
+                                    const next = prev.includes(yr)
+                                      ? prev.filter((y) => y !== yr)
+                                      : [...prev, yr].sort((a, b) => b - a);
+                                    return next;
+                                  });
+                                  setPage(1);
+                                }}
+                                className="rounded text-[#826170] focus:ring-[#826170] h-3.5 w-3.5 border-gray-300"
+                              />
+                              <span className="font-mono text-xs font-semibold">{yr}</span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {enRiesgo && (
@@ -762,6 +901,44 @@ export default function AlumnosPage() {
               </div>
             )}
           </div>
+
+          {/* Badges de años seleccionados */}
+          {selectedAnios.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#E6E0DD]/60">
+              <span className="text-[11px] font-bold text-[#6B6166] mr-1">
+                Años seleccionados ({selectedAnios.length}):
+              </span>
+              {selectedAnios.map((yr) => (
+                <span
+                  key={yr}
+                  className="inline-flex items-center pl-2 pr-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#F1E9ED] text-[#826170] border border-[#D5C3CC]"
+                >
+                  <span className="font-mono">{yr}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedAnios((prev) => prev.filter((y) => y !== yr));
+                      setPage(1);
+                    }}
+                    className="ml-1 p-0.5 text-[#826170] hover:text-[#4F3A44] hover:bg-[#E6DEE2] rounded cursor-pointer"
+                    title={`Quitar año ${yr}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAnios([]);
+                  setPage(1);
+                }}
+                className="text-[11px] font-semibold text-[#826170] hover:underline cursor-pointer ml-1.5"
+              >
+                Limpiar todos
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Error Alert */}
@@ -789,7 +966,6 @@ export default function AlumnosPage() {
                       <span>Estado</span>
                     </th>
                     {renderSortableHeader("apellido_nombre", "Apellido y Nombre", "px-4 py-3.5")}
-                    <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Documento</th>
                     {renderSortableHeader("fecha_nacimiento", "Edad", "px-3 py-3.5", "center")}
                     <th scope="col" className="px-3 py-3.5 select-none font-bold text-[#4F3A44]">Legajo</th>
                     {renderSortableHeader("anio_ingreso", "Año Ingreso", "px-3 py-3.5", "center")}
@@ -802,7 +978,7 @@ export default function AlumnosPage() {
                 <tbody className="divide-y divide-[#E6E0DD] bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={10} className="px-6 py-14 text-center text-[#6B6166]">
+                      <td colSpan={9} className="px-6 py-14 text-center text-[#6B6166]">
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <div className="w-8 h-8 border-3 border-[#D5C3CC] border-t-[#826170] rounded-full animate-spin" />
                           <span className="text-xs font-semibold text-[#826170]">
@@ -813,7 +989,7 @@ export default function AlumnosPage() {
                     </tr>
                   ) : alumnos.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-6 py-16 text-center">
+                      <td colSpan={9} className="px-6 py-16 text-center">
                         <div className="max-w-sm mx-auto flex flex-col items-center">
                           <div className="w-12 h-12 bg-[#F1E9ED] text-[#826170] rounded-full flex items-center justify-center mb-3">
                             <GraduationCap className="w-6 h-6" />
@@ -861,9 +1037,6 @@ export default function AlumnosPage() {
                                 {a.propuesta_nombre}
                               </div>
                             )}
-                          </td>
-                          <td className="px-3 py-3 font-mono text-[#1F1A1C] whitespace-nowrap">
-                            {a.documento}
                           </td>
                           <td className="px-3 py-3 text-center text-[#1F1A1C] font-semibold whitespace-nowrap">
                             {calculateAge(a.fecha_nacimiento)}
@@ -1180,9 +1353,23 @@ export default function AlumnosPage() {
                         </span>
                       );
                     })()}
+
+                    {/* Botón discreto de información (sin hover, el mouse no cambia ni actúa como botón) */}
+                    <button
+                      type="button"
+                      onClick={() => setShowPrivateData((prev) => !prev)}
+                      className="text-gray-400 cursor-default select-none focus:outline-hidden p-0.5"
+                      aria-label="Información"
+                      tabIndex={-1}
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   <p className="text-xs text-[#6B6166] mt-0.5">
-                    {selectedAlumno.documento} • Legajo: {selectedAlumno.legajo || "S/D"} • Edad: {calculateAge(selectedAlumno.fecha_nacimiento)} años
+                    {showPrivateData && (
+                      <span className="font-semibold text-[#1F1A1C]">{selectedAlumno.documento} • </span>
+                    )}
+                    Legajo: {selectedAlumno.legajo || "S/D"} • Edad: {calculateAge(selectedAlumno.fecha_nacimiento)} años
                   </p>
                 </div>
                 <button
@@ -1195,29 +1382,44 @@ export default function AlumnosPage() {
 
               {/* Modal Body */}
               <div className="p-6 space-y-5 text-xs">
-                {/* Contacto y Comunicación (Email y Teléfono normalizado) */}
+                {/* Contacto y Datos Personales */}
                 <div>
                   <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#826170] mb-2 flex items-center">
                     <User className="w-3.5 h-3.5 mr-1.5" />
                     Contacto y Datos Personales
                   </h4>
                   <div className="bg-[#FAF8F7] p-3.5 rounded-xl border border-[#E6E0DD] grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {showPrivateData && (
+                      <div>
+                        <span className="text-[#6B6166] block">DNI:</span>
+                        <span className="font-semibold text-[#1F1A1C] font-mono">
+                          {selectedAlumno.documento}
+                        </span>
+                      </div>
+                    )}
+                    {showPrivateData && (
+                      <div>
+                        <span className="text-[#6B6166] block">Correo:</span>
+                        <span className="font-semibold text-[#1F1A1C] break-all">
+                          {selectedAlumno.email || "-"}
+                        </span>
+                      </div>
+                    )}
+                    {showPrivateData && (
+                      <div>
+                        <span className="text-[#6B6166] block">Teléfono (normalizado):</span>
+                        <span className="font-semibold text-[#1F1A1C] font-mono text-sm">
+                          {normalizePhone(selectedAlumno.telefono)}
+                        </span>
+                      </div>
+                    )}
                     <div>
-                      <span className="text-[#6B6166] block">Email:</span>
-                      <span className="font-semibold text-[#1F1A1C] break-all">
-                        {selectedAlumno.email || "-"}
+                      <span className="text-[#6B6166] block">
+                        {showPrivateData ? "Edad / Fecha Nac.:" : "Edad:"}
                       </span>
-                    </div>
-                    <div>
-                      <span className="text-[#6B6166] block">Teléfono (normalizado):</span>
-                      <span className="font-semibold text-[#1F1A1C] font-mono text-sm">
-                        {normalizePhone(selectedAlumno.telefono)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[#6B6166] block">Edad / Fecha Nac.:</span>
                       <span className="font-semibold text-[#1F1A1C]">
-                        {calculateAge(selectedAlumno.fecha_nacimiento)} años ({selectedAlumno.fecha_nacimiento || "S/D"})
+                        {calculateAge(selectedAlumno.fecha_nacimiento)} años
+                        {showPrivateData && ` (${selectedAlumno.fecha_nacimiento || "S/D"})`}
                       </span>
                     </div>
                     <div>

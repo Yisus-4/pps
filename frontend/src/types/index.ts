@@ -88,6 +88,7 @@ export interface AlumnosPaginatedResponse {
   promedio_historico?: number | null;
   promedio_general_con_aplazos?: number | null;
   promedio_general_sin_aplazos?: number | null;
+  anios_disponibles?: number[];
 }
 
 export interface UploadResponse {

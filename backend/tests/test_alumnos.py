@@ -489,3 +489,35 @@ def test_alumnos_estadisticas_endpoint(client, admin_headers, ingenieria_headers
     assert soc_data["promedio_historico"] is None
 
 
+def test_anios_ingreso_multiselect_filtering(client, admin_headers):
+    # 1. Base query returns anios_disponibles
+    res_base = client.get("/api/alumnos?limit=10", headers=admin_headers)
+    assert res_base.status_code == 200
+    data_base = res_base.json()
+    assert "anios_disponibles" in data_base
+    anios = data_base["anios_disponibles"]
+    assert len(anios) > 0
+    assert anios == sorted(anios, reverse=True)
+
+    # 2. Filter single year
+    target_year = anios[0]
+    res_single = client.get(f"/api/alumnos?anios_ingreso={target_year}&limit=100", headers=admin_headers)
+    assert res_single.status_code == 200
+    data_single = res_single.json()
+    for item in data_single["items"]:
+        assert item["anio_ingreso"] == target_year
+
+    # 3. Filter multi-select years (two years)
+    if len(anios) >= 2:
+        two_years = [anios[0], anios[1]]
+        years_param = f"{two_years[0]},{two_years[1]}"
+        res_multi = client.get(f"/api/alumnos?anios_ingreso={years_param}&limit=100", headers=admin_headers)
+        assert res_multi.status_code == 200
+        data_multi = res_multi.json()
+        for item in data_multi["items"]:
+            assert item["anio_ingreso"] in two_years
+        # Total should be sum or greater than single year
+        assert data_multi["total"] >= data_single["total"]
+
+
+
