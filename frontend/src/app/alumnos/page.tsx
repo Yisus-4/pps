@@ -548,8 +548,8 @@ export default function AlumnosPage() {
           </div>
         </div>
 
-        {/* KPI Cards (Métricas: Alumnos, Cursantes, Egresados y Promedios con y sin aplazos al seleccionar carrera) */}
-        <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-3"} gap-4`}>
+        {/* KPI Cards (Métricas: Alumnos, Cursantes, Egresados y los 3 Promedios separados al seleccionar carrera) */}
+        <div className={`grid grid-cols-1 ${selectedPropuestaId !== null ? "sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6" : "sm:grid-cols-3"} gap-4`}>
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
             <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
@@ -576,21 +576,39 @@ export default function AlumnosPage() {
 
           {selectedPropuestaId !== null && (
             <>
+              {/* Card 4: Promedio Histórico (Egresados) */}
               <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
                 <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                  Prom. General c/ Aplazos
+                  Prom. Histórico (Egresados)
                 </p>
                 <p className="text-2xl font-black text-[#4F3A44] mt-1">
+                  {promedioHistorico !== null && promedioHistorico !== undefined
+                    ? promedioHistorico.toFixed(2)
+                    : "-"}
+                </p>
+                <p className="text-[11px] text-[#6B6166] mt-1">
+                  Egresados con aplazos
+                </p>
+              </div>
+
+              {/* Card 5: Promedio General con Aplazos */}
+              <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
+                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+                  Prom. General c/ Aplazos
+                </p>
+                <p className="text-2xl font-black text-[#826170] mt-1">
                   {promedioGeneralConAplazos !== null && promedioGeneralConAplazos !== undefined
                     ? promedioGeneralConAplazos.toFixed(2)
                     : "-"}
                 </p>
                 <p className="text-[11px] text-[#6B6166] mt-1">
-                  Egresados: <strong className="text-[#4F3A44]">{promedioHistorico !== null && promedioHistorico !== undefined ? promedioHistorico.toFixed(2) : "-"}</strong>
+                  Todos los alumnos
                 </p>
               </div>
 
+              {/* Card 6: Promedio General sin Aplazos */}
               <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-[#E5B115]" />
                 <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">

@@ -319,7 +319,7 @@ export default function DashboardsPage() {
         ) : (
           <>
             {/* Top KPI Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3.5">
           {/* Card 1: Total Alumnos */}
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
@@ -332,12 +332,12 @@ export default function DashboardsPage() {
                   <Users className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-3xl font-black text-[#1F1A1C] mt-2">
+              <p className="text-2xl font-black text-[#1F1A1C] mt-2">
                 {stats ? stats.total_alumnos.toLocaleString() : "-"}
               </p>
             </div>
             <p className="text-[11px] text-[#A98B99] mt-3">
-              Matrícula histórica acumulada
+              Matrícula acumulada
             </p>
           </div>
 
@@ -354,18 +354,18 @@ export default function DashboardsPage() {
                 </div>
               </div>
               <div className="flex items-baseline space-x-2 mt-2">
-                <p className="text-3xl font-black text-[#1D4ED8]">
+                <p className="text-2xl font-black text-[#1D4ED8]">
                   {stats ? stats.activos.toLocaleString() : "-"}
                 </p>
                 {stats && stats.total_alumnos > 0 && (
-                  <span className="text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-sm">
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-1 py-0.5 rounded-sm">
                     {((stats.activos / stats.total_alumnos) * 100).toFixed(0)}%
                   </span>
                 )}
               </div>
             </div>
             <p className="text-[11px] text-[#6B6166] mt-3">
-              Actividad en los últimos 12 meses
+              Últimos 12 meses
             </p>
           </div>
 
@@ -382,18 +382,18 @@ export default function DashboardsPage() {
                 </div>
               </div>
               <div className="flex items-baseline space-x-2 mt-2">
-                <p className="text-3xl font-black text-[#059669]">
+                <p className="text-2xl font-black text-[#059669]">
                   {stats ? stats.egresados.toLocaleString() : "-"}
                 </p>
                 {stats && stats.total_alumnos > 0 && (
-                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-sm">
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded-sm">
                     {((stats.egresados / stats.total_alumnos) * 100).toFixed(1)}%
                   </span>
                 )}
               </div>
             </div>
             <p className="text-[11px] text-[#6B6166] mt-3">
-              100% de actividades aprobadas
+              100% aprobadas
             </p>
           </div>
 
@@ -409,7 +409,7 @@ export default function DashboardsPage() {
                   <TrendingUp className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-3xl font-black text-[#4F3A44] mt-2">
+              <p className="text-2xl font-black text-[#4F3A44] mt-2">
                 {stats ? `${stats.avance_promedio_general.toFixed(1)}%` : "-"}
               </p>
             </div>
@@ -421,35 +421,58 @@ export default function DashboardsPage() {
                 />
               </div>
               <p className="text-[10px] text-[#6B6166]">
-                Cursantes activos: <strong className="text-[#1F1A1C]">{stats ? `${stats.avance_promedio_cursantes.toFixed(1)}%` : "-"}</strong>
+                Cursantes: <strong className="text-[#1F1A1C]">{stats ? `${stats.avance_promedio_cursantes.toFixed(1)}%` : "-"}</strong>
               </p>
             </div>
           </div>
 
-          {/* Card 5: Promedio General con Aplazos */}
+          {/* Card 5: Promedio Histórico (Egresados) */}
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#4F3A44]" />
             <div>
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
-                  Prom. c/ Aplazos
+                  Prom. Histórico
                 </p>
                 <div className="p-1.5 rounded-lg bg-[#FAF8F7] text-[#4F3A44]">
                   <BookOpen className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-3xl font-black text-[#4F3A44] mt-2">
+              <p className="text-2xl font-black text-[#4F3A44] mt-2">
+                {stats?.promedio_historico !== null && stats?.promedio_historico !== undefined
+                  ? stats.promedio_historico.toFixed(2)
+                  : "-"}
+              </p>
+            </div>
+            <p className="text-[11px] text-[#6B6166] mt-3">
+              Egresados con aplazos
+            </p>
+          </div>
+
+          {/* Card 6: Promedio General con Aplazos */}
+          <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#826170]" />
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-[#6B6166] uppercase tracking-wider">
+                  Prom. c/ Aplazos
+                </p>
+                <div className="p-1.5 rounded-lg bg-[#FAF8F7] text-[#826170]">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-2xl font-black text-[#826170] mt-2">
                 {stats?.promedio_general_con_aplazos !== null && stats?.promedio_general_con_aplazos !== undefined
                   ? stats.promedio_general_con_aplazos.toFixed(2)
                   : "-"}
               </p>
             </div>
             <p className="text-[11px] text-[#6B6166] mt-3">
-              Egresados: <strong className="text-[#4F3A44]">{stats?.promedio_historico !== null && stats?.promedio_historico !== undefined ? stats.promedio_historico.toFixed(2) : "-"}</strong>
+              Todos los alumnos
             </p>
           </div>
 
-          {/* Card 6: Promedio General sin Aplazos */}
+          {/* Card 7: Promedio General sin Aplazos */}
           <div className="bg-white border border-[#E6E0DD] rounded-xl p-4 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 left-0 right-0 h-1 bg-[#E5B115]" />
             <div>
@@ -461,7 +484,7 @@ export default function DashboardsPage() {
                   <Award className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-3xl font-black text-[#A07A0B] mt-2">
+              <p className="text-2xl font-black text-[#A07A0B] mt-2">
                 {stats?.promedio_general_sin_aplazos !== null && stats?.promedio_general_sin_aplazos !== undefined
                   ? stats.promedio_general_sin_aplazos.toFixed(2)
                   : "-"}
